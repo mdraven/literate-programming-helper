@@ -12,6 +12,8 @@
 @<Parser@>
 @<Tangle@>
 @<BackConverter@>
+
+@<Provide@>
 @}
 
 Кроме временных буферов, будут ещё и именнованные-временные. Чтобы не было
@@ -187,18 +189,48 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 Теперь можно написать функцию для парсинга файлов, которая использует
 выше приведённые парсеры. Она будет возвращаеть хеш-таблицу с именами чанков
 в качестве ключей; информации в этой таблице достаточно, чтобы из чанков получить
-код программы:
+код программы; также будет возвращаться хеш вложености чанков друг в друга, он
+нужен чтобы найти чанк с именем файла:
 @d Parser @{
 (defun parse-file (filename)
-  (let ((chunks-by-name (make-hash-table :test #'equal)))
-    (labels (@<Parse file -- concatenate to hash@>
+  (let ((chunks-by-name (make-hash-table :test #'equal))
+        (chunks-dependences (make-hash-table :test #'equal)))
+    (labels (@<Parse file -- get targets@>
+             @<Parse file -- concatenate to hash@>
              @<Parse file -- helper@>)
       (helper filename))
-    chunks-by-name))
+    (list chunks-by-name chunks-dependences)))
 @}
 Так как внутри LP-файла подключаются другие, то стоит вызвать парсер рекурсивно.
   Именно для этого нужен helper, который определяется в labels, он производит основную
   работу.
+
+Возвращает список целей в буфере между позициями body-beg и body-end:
+@d Parse file -- get targets
+@{(get-targets (body-beg body-end)
+             (let ((targets (list))
+                   (pos body-beg))
+               (while
+                   (let ((target (nuweb-get-target pos)))
+                     (setq pos (car target))
+                     (when (and pos
+                                (< pos body-end))
+                       (incf pos)
+                       (add-to-list 'targets (cadr target)))))
+               targets))@}
+
+Ищет и возвращает позицию и имя цели:
+@d Parser @{
+(defun nuweb-get-target (pos)
+  (let (target-pos target-name)
+	(save-excursion
+	  (goto-char pos)
+	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
+		(setq target-pos (match-beginning 0))
+		(setq target-name (match-string 1))))
+	(list target-pos target-name)))
+@}
+TODO: заменить поиск цели в других местах на вызов этой функции
 
 Парсеру придётся заполнять хеш-таблицу. Он делает это с помощью функции conc-to-hash:
 @d Parse file -- concatenate to hash
@@ -206,7 +238,13 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
               (let ((list (or (gethash chunkname chunks-by-name)
                               (list))))
                 (push (list body-beg body-end filename) list)
-                (puthash chunkname list chunks-by-name)))@}
+                (puthash chunkname list chunks-by-name))
+              (let ((targets (get-targets body-beg body-end)))
+                (dolist (i targets)
+                  (let ((list (or (gethash i chunks-dependences)
+                                  (list))))
+                    (add-to-list 'list chunkname)
+                    (puthash i list chunks-dependences)))))@}
 Получив имя чанка, она находит его в таблице и добавляет информацию.
 Последний чанк должен быть первым в списке, а первый последним.
 
@@ -280,24 +318,26 @@ end -- необязательный параметр; иногда конец с
 @d Tangle @{
 (defun expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
-    (while (re-search-forward "@<\\(.+?\\)@>" nil t)
-      (let ((tabs-end-pos (match-beginning 0))
-            (tabs-beg-pos (point-at-bol))
-            (target-name (match-string 1)))
+    (let (target target-beg-line target-pos target-name)
+      (while (setq target (nuweb-get-target (point))
+                   target-pos (car target)
+                   target-name (cadr target))
 
         (if (or remove-unfound-chunks
                 (gethash target-name chunks))
             (replace-match ""))
 
+        (goto-char target-pos)
+        (setq target-beg-line (point-at-bol))
+
         (if (gethash target-name chunks)
             (progn
               @<Expand targets -- insert & align text@>)
-          (push target-name unfound-chunks))))
+          (push target-name unfound-chunks))
+        (forward-char)))
     unfound-chunks))
 @}
 Функция возвращает список ненайденных блоков.
-FIXME: expand-targets определит это "@<\\(.+?\\)@>" как тег и выкинет, а после
-  не сможет сам работать
 
 Если блок найден, то нужно не только вставить текст из этого блока, но и
 правильно выровнить его.
@@ -311,18 +351,19 @@ FIXME: expand-targets определит это "@<\\(.+?\\)@>" как тег и
 
 @d Expand targets -- insert & align text
 @{(let ((spaces-first-line (tabs-before-first-string chunks target-name))
-      spaces spaces-str)
-  (setq spaces (- (- tabs-end-pos tabs-beg-pos)
-                  spaces-first-line))
-  (if (< spaces 0)
-      (setq spaces 0))
-  (setq spaces-str (make-string spaces ?\s))
-  (goto-char tabs-end-pos)
+      tabs tabs-str)
+  (setq tabs (- (- target-pos target-beg-line)
+                spaces-first-line))
+  (if (< tabs 0)
+      (setq tabs 0))
+  (setq tabs-str (make-string tabs ?\s))
+
+  (goto-char target-pos)
   (insert-parts-of-chunks chunks target-name)
 
   @<Expand targets -- insert spaces@>
 
-  (goto-char tabs-end-pos)
+  (goto-char target-pos)
   (delete-char spaces-first-line))@}
 Функция tabs-before-first-string возвращает число пробелов перед первой строкой;
   в spaces хранится число пробелов, которое будет вставлено перед каждой строкой,
@@ -337,10 +378,10 @@ FIXME: expand-targets определит это "@<\\(.+?\\)@>" как тег и
 
 @d Expand targets -- insert spaces
 @{(let ((end-of-chunks-block (point)))
-  (while (> (point-at-bol) tabs-beg-pos)
+  (while (> (point-at-bol) target-beg-line)
     (move-beginning-of-line nil)
     (unless (empty-line-p end-of-chunks-block)
-      (insert spaces-str))
+      (insert tabs-str))
     (forward-line -1)))@}
 Учитываются пустые строки, перед ними пробелы не ставятся.
 
@@ -354,17 +395,17 @@ FIXME: expand-targets определит это "@<\\(.+?\\)@>" как тег и
 @d Tangle @{
 (defun insert-parts-of-chunks (hash chunkname)
   (let ((point (point))
-        (list (gethash chunkname hash)))
+        (list (reverse (gethash chunkname hash))))
     (dolist (i list)
       (let ((file (caddr i))
             (beg (1- (car i)))
             (end (1- (cadr i))))
         (insert-file-contents-literally file nil beg end)
-        (let ((overlay (make-overlay point (+ point (- end beg)) nil t)))
+        (let ((overlay (make-overlay point (+ point (- end beg)))))
           (push overlay *overlays*)
-          (overlay-put overlay 'literate-chunk (list i chunkname)))))
-    (when list
-      (goto-char (overlay-end (car *overlays*))))
+          (overlay-put overlay 'literate-chunk (list i chunkname)))
+        (setq point (+ point (- end beg)))
+        (goto-char point)))
     list))
 @}
 Эта функция всегда устанавливает курсор после вставленного текста.
@@ -439,22 +480,29 @@ TODO: хук для преобразования из табов в пробел
 Внутри активно используется содержимое переменной *overlays*.
 @d BackConverter @{
 (defun buffer-to-LP ()
-  ;; Create buffers
-  @<Buffer to LP -- Create buffers@>
-  ;; Create markers
-  @<Buffer to LP -- Create markers@>
-  ;; Update chunks in LP
-  @<Buffer to LP -- Update chunks in LP@>)
+  (let ((*overlays* *overlays*)
+        (files (get-filenames-list-from-*overlays*)))
+    ;; Create buffers
+    @<Buffer to LP -- Create buffers@>
+    ;; Create markers
+    @<Buffer to LP -- Create markers@>
+    ;; Update chunks in LP
+    @<Buffer to LP -- Update chunks in LP@>
+    ;; Save & kill buffers
+    (save-current-buffer
+      (dolist (i files)
+        (set-buffer (concat literate-buffer-prefix i))
+        (write-file i)
+        (kill-buffer)))))
 @}
 
 На данном этапе нам потребуются буферы с LP-текстом для того, чтобы можно было
 заменить код в чанках на новый. Оверлеи(которые играют роль отображений чанков)
 содержат имена LP-файлов, поэтому мы извлекаем эти имена и создаём буферы:
 @d Buffer to LP -- Create buffers
-@{(let ((files (get-filenames-list-from-*overlays*)))
-  (dolist (i files)
-    (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix i))
-      (insert-file-contents-literally i))))@}
+@{(dolist (i files)
+  (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix i))
+    (insert-file-contents-literally i)))@}
 
 Создаём в LP-файле маркеры. Маркеры отмечают начало и конец блока с кодом. Когда
 мы расставим маркеры, нам будет уже не страшны изменения размеров блоков -- маркеры
@@ -485,14 +533,19 @@ TODO: хук для преобразования из табов в пробел
 @{(while *overlays*
   (let* ((overlay (car *overlays*))
          (chunkname (cadr (overlay-get overlay 'literate-chunk))))
+
     (with-current-buffer (overlay-buffer overlay)
-      (let* ((overlays-and-pos (get-overlays-near-pos-with-chunkname (1+ (overlay-start overlay))
+      (let (overlays-and-pos overlays beg-overlays end-overlays rem-spaces)
+
+        (setq overlays-and-pos (get-overlays-near-pos-with-chunkname (overlay-start overlay)
+                                                                     *overlays*
                                                                      chunkname))
-             (overlays (car overlays-and-pos))
-             (beg-overlays (cadr overlays-and-pos))
-             (end-overlays (caddr overlays-and-pos))
-             (rem-spaces (get-spaces-before-overlay beg-overlays end-overlays)))
         (makunbound 'overlay)
+
+        (setq overlays (car overlays-and-pos)
+              beg-overlays (cadr overlays-and-pos)
+              end-overlays (caddr overlays-and-pos)
+              rem-spaces (get-spaces-before-overlay beg-overlays end-overlays))
 
         (setq *overlays* (list-subtract *overlays* overlays))
 
@@ -509,21 +562,21 @@ TODO: хук для преобразования из табов в пробел
 переключает буфер: с буфера оверлея на буфер чанка:
 @d Buffer to LP -- insert code in LP & remove from tangled file
 @{(let ((markers (overlay-get i 'literate-marker)))
-            (let* ((beg-body (overlay-start i))
-                   (end-body (overlay-end i))
-                   (body (buffer-substring-no-properties beg-body end-body))
-                   (something-written-before-body))
-              @<Buffer to LP -- set something-written-before-body@>
+  (let* ((beg-body (overlay-start i))
+         (end-body (overlay-end i))
+         (body (buffer-substring-no-properties beg-body end-body))
+         (something-written-before-body))
+    @<Buffer to LP -- set something-written-before-body@>
 
-              (with-current-buffer (marker-buffer (car markers))
-                (delete-region (marker-position (car markers))
-                               (marker-position (cadr markers)))
-                (save-excursion
-                  @<Buffer to LP -- insert body to LP@>
+    (with-current-buffer (marker-buffer (car markers))
+      (delete-region (marker-position (car markers))
+                     (marker-position (cadr markers)))
+      (save-excursion
+        @<Buffer to LP -- insert body to LP@>
 
-                  @<Buffer to LP -- rm or ins spaces before first line of the block of chunks@>
-                  @<Buffer to LP -- remove spaces before chunk's first line@>
-                  @<Buffer to LP -- remove spaces before other chunk's lines@>))))@}
+        @<Buffer to LP -- rm or ins spaces before first line of the block of chunks@>
+        @<Buffer to LP -- remove spaces before chunk's first line@>
+        @<Buffer to LP -- remove spaces before other chunk's lines@>))))@}
 Напомню, что маркеры расположены в буфере с чанками, а оверлеи в буфере со сгренерированным
   кодом.
 TODO: надо сделать хук для преобразования из пробелов в табы. Как раз после удаления/добавления
@@ -546,11 +599,11 @@ TODO: надо сделать хук для преобразования из п
 Удалить или добавить пробелы перед первой строкой блоков из чанков с одним именем:
 @d Buffer to LP -- rm or ins spaces before first line of the block of chunks
 @{(when (= beg-body beg-overlays)
-                    (let ((delete-char (car rem-spaces)))
-                      (if (> delete-char 0)
-                          (delete-char delete-char)
-                        (insert (make-string (abs delete-char) ?\s))))
-                    (forward-line 1))@}
+  (let ((delete-char (car rem-spaces)))
+    (if (> delete-char 0)
+        (delete-char delete-char)
+      (insert (make-string (abs delete-char) ?\s))))
+  (forward-line 1))@}
 
 Так как весь блок чанков с одним именем центрируется по первой строке первого чанка, то,
 казалось бы, первые строки остальных чанков можно не учитывать и обрабатывать как остальные.
@@ -559,72 +612,87 @@ TODO: надо сделать хук для преобразования из п
 они не учитывались:
 @d Buffer to LP -- remove spaces before chunk's first line 
 @{(when (and (/= beg-body beg-overlays)
-             (< (point) (marker-position (cadr markers))))
-(unless (and something-written-before-body
-             (empty-line-p))
-  (delete-char (cadr rem-spaces)))
-(forward-line 1))@}
+           (< (point) (marker-position (cadr markers))))
+  (unless (and something-written-before-body
+               (empty-line-p))
+    (delete-char (cadr rem-spaces)))
+  (forward-line 1))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.
 
 Удаляем пробелы перед остальными строками в чанках:
 @d Buffer to LP -- remove spaces before other chunk's lines
 @{(while (< (point) (marker-position (cadr markers)))
-   (unless (empty-line-p)
-         (delete-char (cadr rem-spaces)))
-   (forward-line 1))@}
+  (unless (empty-line-p)
+    (delete-char (cadr rem-spaces)))
+  (forward-line 1))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.
 
 Функция которая возвращает блок оверлеев имеющих одно имя, и которые,
 предположительно, были созданы при вставке чанков в одну цель:
 @d BackConverter @{
-(defun get-overlays-near-pos-with-chunkname (pos chunkname)
+(defun get-overlays-near-pos-with-chunkname (pos overlays-list chunkname)
   (let (overlays beg-overlays end-overlays)
-    (labels (@<Buffer to LP -- find overlay by name@>)
-      @<Buffer to LP -- get first overlay@>
+    @<Buffer to LP -- overlays under argument pos@>
 
-      (when (and beg-overlays end-overlays)
-        @<Buffer to LP -- get previous overlay@>
-        @<Buffer to LP -- get next overlay@>))
+    @<Buffer to LP -- get overlays before pos@>
+
+    @<Buffer to LP -- get overlays after pos@>
     (list overlays beg-overlays end-overlays)))
 @}
-Находит первый блок пользуясь переданной информацией. Далее берёт начало и конец
-  этого блока и по ним находит блок выше и ниже. Далее таким же способом находит
-  блоки ещё ниже и выше, итд. Так находятся все блоки.
 FIXME: примет две подряд идущие цели с одним именем, как одну
 
-Внутреняя функция, которая возвращает оверлей по позиции внутри оверлея и
-имени оверлея:
-@d Buffer to LP -- find overlay by name
-@{(find-overlay-by-name (pos name)
-                      (catch 'break
-                             (dolist (i (overlays-at pos))
-                                 (let ((overlay-name (cadr (overlay-get i 'literate-chunk))))
-                                     (if (string= name overlay-name)
-                                       (throw 'break i))))))@}
+Оверлеи с именем chunkname включающие точку pos помещаются в список
+overlays:
+@d Buffer to LP -- overlays under argument pos
+@{(let ((overlays-list overlays-list))
+  (while overlays-list
+    (let* ((overlay (car overlays-list))
+           (beg (overlay-start overlay))
+           (end (overlay-end overlay))
+           (name (cadr (overlay-get overlay 'literate-chunk))))
+      (when (and (>= pos beg)
+                 (<= pos end)
+                 (string= chunkname name))
+        (when (or (null beg-overlays)
+                  (< beg beg-overlays))
+          (setq beg-overlays beg))
+        (when (or (null end-overlays)
+                  (> end end-overlays))
+          (setq end-overlays end))
+        (push overlay overlays))
+      (setq overlays-list (cdr overlays-list)))))@}
+Заполняются переменные beg-overlays и end-overlays.
+Про функцию overlays-at лучше не вспоминать, с её помощью не удаётся получить
+  схлопнувшиеся оверлеи(у которых start = end).
 
-Находим первый оверлей по переданным параметрам:
-@d Buffer to LP -- get first overlay
-@{(let ((overlay (find-overlay-by-name pos chunkname)))
-    (when overlay
-      (setq beg-overlays (overlay-start overlay)
-            end-overlays (overlay-end overlay))
-      (push overlay overlays)))@}
+С помощью переменной beg-overlays берём оверлеи с именем chunkname которые
+лежат до лежащих в overlays, но имеющих с ними общую точку beg-overlays:
+@d Buffer to LP -- get overlays before pos
+@{(when (and beg-overlays
+           (> pos beg-overlays))
+  (let ((ret (get-overlays-near-pos-with-chunkname beg-overlays
+                                                   (list-subtract overlays-list
+                                                                  overlays)
+                                                   chunkname)))
+    (setq overlays (append overlays (car ret)))
+    (when (and (cadr ret)
+               (> beg-overlays (cadr ret)))
+      (setq beg-overlays (cadr ret)))))@}
+Если не выкидывать overlays из overlays-list, то рекурсивный вызов пойдёт и вниз, а
+  потом опять вверх, и так до переполнения стека.
 
-Находим оверлеи выше:
-@d Buffer to LP -- get previous overlay
-@{(while
-    (let ((overlay (find-overlay-by-name (1- beg-overlays) chunkname)))
-      (when overlay
-        (setq beg-overlays (overlay-start overlay))
-        (push overlay overlays))))@}
-
-Находим оверлеи ниже:
-@d Buffer to LP -- get next overlay
-@{(while
-    (let ((overlay (find-overlay-by-name (1+ end-overlays) chunkname)))
-      (when overlay
-        (setq end-overlays (overlay-end overlay))
-        (push overlay overlays))))@}
+Аналогочно "get overlays before pos", но уже после overlays:
+@d Buffer to LP -- get overlays after pos
+@{(when (and end-overlays
+           (< pos end-overlays))
+  (let ((ret (get-overlays-near-pos-with-chunkname end-overlays
+                                                   (list-subtract overlays-list
+                                                                  overlays)
+                                                   chunkname)))
+    (setq overlays (append overlays (car ret)))
+    (when (and (caddr ret)
+               (< end-overlays (caddr ret)))
+      (setq end-overlays (caddr ret)))))@}
 
 Функция которая по переданным позициям в буфере вычисляет сколько пробелов
 нужно удалить/добавить к первой строке, удалить у остальных, добавить к цели:
@@ -658,12 +726,12 @@ FIXME: примет две подряд идущие цели с одним им
 (setq beg-code (point))@}
 
 Если мы не вышли за пределы блока который обрабатываем, то вычислим количество
-симолов(пробелов) перед первой строкой и проинициализируем их смещение для остальных
+символов(пробелов) перед первой строкой и проинициализируем их смещение для остальных
 строк:
 @d Buffer to LP -- init first-num-spaces & other-num-spaces
 @{(when (<= (point) end-pos)
-    (setq first-num-spaces (- beg-code (point-at-bol)))
-    (setq other-num-spaces first-num-spaces))
+  (setq first-num-spaces (- beg-code (point-at-bol)))
+  (setq other-num-spaces first-num-spaces))
 (forward-line 1)@}
 Не стоит забывать, что перед первой строкой могут быть не только пробелы.
 
@@ -702,21 +770,26 @@ FIXME: примет две подряд идущие цели с одним им
   то после смещения цели к первой строке нужно добавить разницу. Она отмечается
   отрицательным числом. 
 
+
+@d Provide
+@{
+(provide 'literate-mode)
+@}
+
 @d License
-@{/*
- * literate-mode - support literate programming for emacs
- * Copyright (C) 2012 Iljasov Ramil
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */@}
+@{;; literate-mode - support literate programming for emacs
+;; Copyright (C) 2012 Iljasov Ramil
+;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+@}
