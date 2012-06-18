@@ -12,6 +12,8 @@
 @<Parser@>
 @<Tangle@>
 @<BackConverter@>
+@<Project@>
+@<Interactive@>
 
 @<Provide@>
 @}
@@ -42,7 +44,29 @@
       (nuweb-text-chunk-parser beg-pos)))
 @}
 вначале она пытается парсить как чанк с кодом, потом как чанк, который
-подключает другой LP-файл, потому как чанк с текстом.
+подключает другой LP-файл, потом как чанк с текстом.
+
+Далее нам пригодится макрос:
+@d Helpers @{
+(defmacro literate-case-string (expr &rest clauses)
+"(literate-case-string \"one\"
+                      (\"one\" 'one)
+                      (\"two\" 'two)
+                      (\"three\" 'three))"
+  `(let ((var123 ,expr))
+     (cond
+      ,@(mapcar (lambda (x)
+                  (list (list 'string= 'var123 (car x))
+                        (cadr x)))
+                clauses))))
+@}
+может такой есть в elisp, но я его не нашёл. Работает очень просто:
+  expr -- выражение которое возвращает строку;
+  clauses -- пары (<строка> <выражение>).
+Так как gensym, что-то не видать, а в имитаторе cl используют какие-то
+  костыли, я остановлюсь на простом варианте: не использовать переменную var123
+  внутри clauses.
+FIXME:Данная версия не принимает t
 
 Напишем парсер для кода:
 @d Parser @{
@@ -57,7 +81,7 @@
           @<Code parser -- fill name@>)
         (list subtype name body-beg body-end tags next-chunk))))
 @}
-Вначале сделаем проверку на наличие в буфере 2 символов, без этих символов в
+Вначале сделаем проверку на наличие в буфере 2-х символов, без этих символов в
   буфере заведомо не помещается тег @[od] и следовательно нет кодового чанка.
 Далее проверяем тег @[do], находим открывающий, закрывающий и тег отмечающий
   ссылки. После этого запоняем поля.
@@ -96,7 +120,7 @@ TODO: быть может стоит не учитывать @{\n? Что-то �
                    ((string= match "@}") (setq close (point)))))
               (not close))))))@}
 Так как этот режим должен собрать сам себя, то тут используется костыль. Теги
-  "@{", "@|" заключённые в двойные кавычки(причём открывающая и закрывающая кавычка
+  "@{", "@|", "@}" заключённые в двойные кавычки(причём открывающая и закрывающая кавычка
   лежат на одной строке) пропускаются парсером.
 
 В зависимости от того, какие теги были найдены поля заполняются по разному:
@@ -188,18 +212,21 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 
 Теперь можно написать функцию для парсинга файлов, которая использует
 выше приведённые парсеры. Она будет возвращаеть хеш-таблицу с именами чанков
-в качестве ключей; информации в этой таблице достаточно, чтобы из чанков получить
-код программы; также будет возвращаться хеш вложености чанков друг в друга, он
-нужен чтобы найти чанк с именем файла:
+в качестве ключей(chunks-by-name); информации в этой таблице достаточно, чтобы из
+чанков получить код программы; также будет возвращаться хеш вложености чанков
+друг в друга(chunks-dependences), он нужен чтобы найти чанк с именем файла;
+ещё список генерируемых файлов(те, что @o в nuweb), это список листьев
+для chunks-dependences:
 @d Parser @{
 (defun parse-file (filename)
   (let ((chunks-by-name (make-hash-table :test #'equal))
-        (chunks-dependences (make-hash-table :test #'equal)))
+        (chunks-dependences (make-hash-table :test #'equal))
+        (chunks-files (list)))
     (labels (@<Parse file -- get targets@>
              @<Parse file -- concatenate to hash@>
              @<Parse file -- helper@>)
       (helper filename))
-    (list chunks-by-name chunks-dependences)))
+    (list chunks-by-name chunks-dependences chunks-files)))
 @}
 Так как внутри LP-файла подключаются другие, то стоит вызвать парсер рекурсивно.
   Именно для этого нужен helper, который определяется в labels, он производит основную
@@ -265,7 +292,8 @@ TODO: заменить поиск цели в других местах на в�
                        ('file-chunk (conc-to-hash (cadr chunk)
                                                   (caddr chunk)
                                                   (cadddr chunk)
-                                                  filename))
+                                                  filename)
+                                    (add-to-list 'chunks-files (cadr chunk)))
                        ('include (helper (cadr chunk)))
                        ('text ()))
                      (< next-chunk-pos (point-max)))))))@}
@@ -306,7 +334,7 @@ end -- необязательный параметр; иногда конец с
 @}
 Она принимает имя файла, который нужно сгенерировать. Он должен быть определён, как
   имя одного из чанков. Вторым параметром является хеш-таблица полученная из parse-file.
-Она создаёт буфер соединим префикс и имя генерируемого файла, вставляет в него
+Она создаёт буфер соединив префикс и имя генерируемого файла, вставляет в него
   сожержимое чанка файла с помощью функции insert-parts-of-chunks, которая определена
   ниже, переводит курсор на начало файла(insert-parts-of-chunks устанавливает курсор
   после вставленного текста), и с помощью функции expand-targets распаковывает цели.
@@ -350,7 +378,7 @@ end -- необязательный параметр; иногда конец с
     то они вставляются с такими отступами, которые у них были. Ни один пробел не удаляется.
 
 @d Expand targets -- insert & align text
-@{(let ((spaces-first-line (tabs-before-first-string chunks target-name))
+@{(let ((spaces-first-line (spaces-before-first-string chunks target-name))
       tabs tabs-str)
   (setq tabs (- (- target-pos target-beg-line)
                 spaces-first-line))
@@ -365,7 +393,7 @@ end -- необязательный параметр; иногда конец с
 
   (goto-char target-pos)
   (delete-char spaces-first-line))@}
-Функция tabs-before-first-string возвращает число пробелов перед первой строкой;
+Функция spaces-before-first-string возвращает число пробелов перед первой строкой;
   в spaces хранится число пробелов, которое будет вставлено перед каждой строкой,
   кроме первой.
 Так как insert-parts-of-chunks ставит курсор после вставленого текста, то вставляем
@@ -414,7 +442,7 @@ TODO: хук для преобразования из табов в пробел
 
 Функция, которая возвращает число пробелов перед первой строкой чанка:
 @d Tangle @{
-(defun tabs-before-first-string (hash chunkname)
+(defun spaces-before-first-string (hash chunkname)
   (let ((list (gethash chunkname hash)))
     (when list
       (let ((beg (1- (car (car (last list)))))
@@ -771,8 +799,217 @@ overlays:
   отрицательным числом. 
 
 
-@d Provide
-@{
+Создание и открытие LP-проекта
+=============================================
+
+Настройка:
+@d Customs @{
+(defcustom literate-project-filename "lp-project"
+  "Project filename for literate-mode"
+  :type '(string))
+@}
+literate-project-filename -- имя для проектных файлов по-умолчанию
+
+Переменные проекта:
+@d Variables @{
+(defvar literate-syntax-types '("nuweb" "noweb"))
+(defvar literate-lp-directory nil)
+(defvar literate-lp-syntax nil)
+(defvar literate-lp-filename nil)
+(defvar literate-src-dir nil)
+@}
+literate-syntax-types -- допустимые типы синтаксиса LP-текста.
+literate-lp-directory -- путь до директории проекта. Остальные пути должны быть относительно
+  этой директории. Если nil, то файл проекта не открыт.
+literate-lp-syntax -- синтаксис текущего проекта. Если nil, то синтаксис не выбран.
+literate-lp-filename -- файл с LP-текстом. Если нужно несколько независимых LP-текстов, то
+  делать разные проекты. Если они зависимы, то создать файл, который includ'ит эти LP-файлы.
+  Относительный путь от literate-lp-directory.
+literate-src-dir -- директория в которую будут сохраняться сгенерированные исходные коды;
+  относительный путь от literate-lp-directory.
+
+Функция записи в файл проекта. Выглядит громозко, но на самом деле почти ничего не делает:
+@d Project @{
+(defun literate-save-lp-config (&optional create-p)
+  (interactive)
+  (if (null literate-lp-directory)
+      (progn (message "The project file has not been saved. You must first create or open project")
+             nil)
+    (let ((proj-file (concat literate-lp-directory literate-project-filename)))
+      (if (and (not (file-exists-p proj-file))
+               (not create-p))
+          (message (concat "The project file " proj-file " doesn't exist"))
+        (with-temp-buffer
+          (when literate-lp-syntax
+            (insert "Syntax: " literate-lp-syntax)
+            (newline))
+          (when literate-lp-filename
+            (insert "LPFile: " literate-lp-filename)
+            (newline))
+          (when literate-src-dir
+            (insert "SrcDir: " literate-src-dir)
+            (newline))
+          (write-file proj-file)
+          t)))))
+@}
+флаг, который принимает функция, заставляет её создавать файл, если его нет. Этот флаг
+  устанавливает функция создания проекта. Функции настройки проекта,
+  наоборот, его не используют.
+Если какие-то параметры равны nil, то они не сохраняются в файл.
+FIXME: не проверяет, что proj-file -- директория
+
+Функция настройки. Нужна для выбора LP-файла:
+@d Project @{
+(defun literate-set-lp-file (filename)
+  (interactive "FLP file: ")
+  (if (null literate-lp-directory)
+      (progn (message "You must first create or open project")
+             nil)
+    (setq literate-lp-filename (file-relative-name filename literate-lp-directory))
+    (literate-save-lp-config)
+    (unless (file-exists-p filename)
+      (find-file filename))
+    t))
+@}
+если файл НЕ существует, то он будет открыт в буфере.
+
+Функция настройки. Нужна для выбора директории, куда будет сохраняться
+сгенирированный код:
+@d Project @{
+(defun literate-set-src-dir (dir-path)
+  (interactive
+   (list
+    (read-directory-name "Source directory: " nil nil nil
+                         (or literate-src-dir "src"))))
+  (if (null literate-lp-directory)
+      (progn (message "You must first create or open project")
+             nil)
+    (if (file-exists-p dir-path)
+        (unless (file-directory-p dir-path)
+          (message (concat dir-path " isn't directory")))
+      (make-directory dir-path))
+    (when (file-directory-p dir-path)
+      (setq literate-src-dir (file-relative-name dir-path literate-lp-directory))
+      (literate-save-lp-config))))
+@}
+если директории нет, то создаёт её.
+
+Функция создания нового проекта:
+@d Project @{
+(defun literate-create-lp-project (dir-path syntax lp-file src-dir)
+  (interactive
+   (list
+    (read-directory-name "LP project directory: ")
+    (completing-read "LP syntax type: " literate-syntax-types nil t (car literate-syntax-types))
+    (read-file-name "LP file: ")
+    (read-directory-name "Source directory: " nil nil nil "src")))
+  (let ((proj-file (concat dir-path literate-project-filename)))
+    (if (file-exists-p proj-file)
+        (message (concat "The project file " proj-file " already exists"))
+      (setq literate-lp-directory dir-path
+            literate-lp-syntax syntax
+            literate-lp-filename nil
+            literate-src-dir nil)
+      (and (literate-save-lp-config t)
+           (literate-set-lp-file lp-file)
+           (literate-set-src-dir src-dir)))))
+@}
+благодаря literate-save-lp-config, literate-set-lp-file, literate-set-src-dir делает кучу
+  записей в один файл подряд. Не очень красиво, но функция вызывается не так часто.
+
+Вспомогательная функция-фильтр. Принимает строку с названием синтаксиса и
+возвращает её, если он корректный, иначе возвращает nil:
+@d Project @{
+(defun literate-filter-correct-syntax (syntax)
+  (when (member syntax literate-syntax-types)
+    syntax))
+@}
+
+Функция загрузки файла проекта:
+@d Project @{
+(defun literate-open-lp-project (dir-path)
+  (interactive "DLP project directory: ")
+  (let ((proj-file (concat dir-path literate-project-filename)))
+    (if (not (file-exists-p proj-file))
+        (message (concat "The project file " proj-file " doesn't exist"))
+      (setq literate-lp-directory dir-path
+            literate-lp-syntax nil
+            literate-lp-filename nil
+            literate-src-dir nil)
+       (with-temp-buffer
+        (insert-file-contents proj-file)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\([[:alpha:]]+\\):[[:blank:]]*\\(.+?\\)[[:blank:]]*$" nil t)
+          (let ((var (match-string 1))
+                (val (match-string 2)))
+            (literate-case-string
+             var
+             ("Syntax"  (setq literate-lp-syntax
+                              (literate-filter-correct-syntax val)))
+             ("LPFile" (setq literate-lp-filename val))
+             ("SrcDir" (setq literate-src-dir val)))))))))
+@}
+
+Интерактивное управление проектом
+=============================================
+
+Функция которая возвращает список имен файлов(тег @o в nuweb), которые
+содержат чанк chunk-name:
+@d Interactive @{
+(defun get-target-files (chunks-dependences chunks-files chunk-name)
+  (let ((files (list))
+        (visited-chunks (list)))
+    (labels ((helper (chunk-name)
+                     (if (member chunk-name chunks-files)
+                         (add-to-list 'files chunk-name)
+                       (dolist (i (gethash chunk-name chunks-dependences))
+                         (unless (member i visited-chunks)
+                           (helper i)
+                           (add-to-list 'visited-chunks i))))))
+      (helper chunk-name))
+    files))
+@}
+chunks-dependences -- дерево вложености целей, а chunks-files -- листья этого дерева;
+  и то, и другое берётся из функции parse-file.
+Эту функцию можно использовать для определения файла, который будет генерироваться
+  функцией expand-file.
+
+Функция возвращает t, если 'b' между 'a' и 'c':
+@d Helpers @{
+(defun num-between (a b c)
+  (and (<= a b)
+       (<= b c)))
+@}
+наверное она тоже есть в elisp, но вот как называется?
+
+Функция для перехода из LP-текста в сгенерированный исходный код:
+@d Interactive @{
+(defun go-to-body-position (pos)
+  (interactive "d")
+  (let ((cur-point (position-bytes pos))
+        (filename-buffer (buffer-file-name)))
+    (when filename-buffer
+      (dolist (i *overlays*)
+        (let* ((chunk (car (overlay-get i 'literate-chunk)))
+               (beg (1- (car chunk)))
+               (end (1- (cadr chunk)))
+               (filename-chunk (caddr chunk)))
+          (when (and (num-between beg cur-point end)
+                     (string= filename-buffer (expand-file-name filename-chunk)))
+            (switch-to-buffer (overlay-buffer i))
+            (goto-char (overlay-start i))
+            (return)))))))
+@}
+находит чанк, тело которого находится в позиции pos в LP-файле, и переходит на него.
+pos -- это тело чанка без заголовка.
+Функция использует переменную *overlays*.
+
+
+
+TODO: Для fridge https://github.com/m2ym/yascroll-el
+
+
+@d Provide @{
 (provide 'literate-mode)
 @}
 
