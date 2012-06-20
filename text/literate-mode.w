@@ -569,9 +569,10 @@ write-region используется потому, как остальные ф
     (with-current-buffer (overlay-buffer overlay)
       (let (overlays-and-pos overlays beg-overlays end-overlays rem-spaces)
 
-        (setq overlays-and-pos (get-overlays-near-pos-with-chunkname (overlay-start overlay)
-                                                                     *overlays*
-                                                                     chunkname))
+        (setq overlays-and-pos (literate-get-overlays-near-pos-with-chunkname
+                                (overlay-start overlay)
+                                *overlays*
+                                chunkname))
         (makunbound 'overlay)
 
         (setq overlays (car overlays-and-pos)
@@ -662,7 +663,7 @@ TODO: надо сделать хук для преобразования из п
 Функция которая возвращает блок оверлеев имеющих одно имя, и которые,
 предположительно, были созданы при вставке чанков в одну цель:
 @d BackConverter @{
-(defun get-overlays-near-pos-with-chunkname (pos overlays-list chunkname)
+(defun literate-get-overlays-near-pos-with-chunkname (pos overlays-list chunkname)
   (let (overlays beg-overlays end-overlays)
     @<Buffer to LP -- overlays under argument pos@>
 
@@ -702,10 +703,11 @@ overlays:
 @d Buffer to LP -- get overlays before pos
 @{(when (and beg-overlays
            (> pos beg-overlays))
-  (let ((ret (get-overlays-near-pos-with-chunkname beg-overlays
-                                                   (literate-list-subtract overlays-list
-                                                                           overlays)
-                                                   chunkname)))
+  (let ((ret (literate-get-overlays-near-pos-with-chunkname
+              beg-overlays
+              (literate-list-subtract overlays-list
+                                      overlays)
+              chunkname)))
     (setq overlays (append overlays (car ret)))
     (when (and (cadr ret)
                (> beg-overlays (cadr ret)))
@@ -717,10 +719,11 @@ overlays:
 @d Buffer to LP -- get overlays after pos
 @{(when (and end-overlays
            (< pos end-overlays))
-  (let ((ret (get-overlays-near-pos-with-chunkname end-overlays
-                                                   (literate-list-subtract overlays-list
-                                                                           overlays)
-                                                   chunkname)))
+  (let ((ret (literate-get-overlays-near-pos-with-chunkname
+              end-overlays
+              (literate-list-subtract overlays-list
+                                      overlays)
+              chunkname)))
     (setq overlays (append overlays (car ret)))
     (when (and (caddr ret)
                (< end-overlays (caddr ret)))
