@@ -213,11 +213,11 @@
 
 (defun literate-expand-file (filename chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
-    (insert-parts-of-chunks chunks filename)
+    (literate-insert-parts-of-chunks chunks filename)
     (beginning-of-buffer)
-    (expand-targets chunks)))
+    (literate-expand-targets chunks)))
 
-(defun expand-targets (chunks &optional remove-unfound-chunks)
+(defun literate-expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
     (let (target target-beg-line target-pos target-name)
       (while (setq target (literate-nuweb-get-target (point))
@@ -242,7 +242,7 @@
                 (setq tabs-str (make-string tabs ?\s))
 
                 (goto-char target-pos)
-                (insert-parts-of-chunks chunks target-name)
+                (literate-insert-parts-of-chunks chunks target-name)
 
                 (let ((end-of-chunks-block (point)))
                   (while (> (point-at-bol) target-beg-line)
@@ -257,7 +257,7 @@
         (forward-char)))
     unfound-chunks))
 
-(defun insert-parts-of-chunks (hash chunkname)
+(defun literate-insert-parts-of-chunks (hash chunkname)
   (let ((point (point))
         (list (reverse (gethash chunkname hash))))
     (dolist (i list)
