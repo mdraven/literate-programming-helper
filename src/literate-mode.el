@@ -160,7 +160,7 @@
                           (let ((targets (list))
                                 (pos body-beg))
                             (while
-                                (let ((target (nuweb-get-target pos)))
+                                (let ((target (literate-nuweb-get-target pos)))
                                   (setq pos (car target))
                                   (when (and pos
                                              (< pos body-end))
@@ -201,7 +201,7 @@
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
 
-(defun nuweb-get-target (pos)
+(defun literate-nuweb-get-target (pos)
   (let (target-pos target-name)
 	(save-excursion
 	  (goto-char pos)
@@ -211,7 +211,7 @@
 	(list target-pos target-name)))
 
 
-(defun expand-file (filename chunks)
+(defun literate-expand-file (filename chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
     (insert-parts-of-chunks chunks filename)
     (beginning-of-buffer)
@@ -220,7 +220,7 @@
 (defun expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
     (let (target target-beg-line target-pos target-name)
-      (while (setq target (nuweb-get-target (point))
+      (while (setq target (literate-nuweb-get-target (point))
                    target-pos (car target)
                    target-name (cadr target))
 
@@ -610,7 +610,7 @@
             (let ((file (car (get-target-files dependences files
                                                (literate-get-chunk-name chunks (point))))))
               (when file
-                (expand-file file chunks)
+                (literate-expand-file file chunks)
                 (when (and literate-lp-directory
                            literate-src-dir)
                   (with-current-buffer (concat literate-buffer-prefix file)
