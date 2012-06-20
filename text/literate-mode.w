@@ -1033,16 +1033,20 @@ chunks -- первая хеш-таблица возвращаемая parse-file
 
 Функция которая генерирует исходный код и переходит к чанку в этом исходном коде:
 @d Interactive @{
-(defun literate-generate-and-go (pos)
-  (interactive "d")
+(defun literate-generate-and-go (pos &optional arg)
+  (interactive "d\np")
   (setq literate-overlays (list))
   (let ((parse (literate-parse-file (concat literate-lp-directory "/"
                                             literate-lp-filename))))
     (let ((chunks (car parse))
           (dependences (cadr parse))
           (files (caddr parse)))
-      (let ((file (car (literate-get-target-files dependences files
-                                                  (literate-get-chunk-name chunks (point))))))
+      (let ((files (literate-get-target-files dependences files
+                                              (literate-get-chunk-name chunks (point))))
+            file)
+        (setq file (if (eql arg 4)
+                       (completing-read "File: " files nil t (car files))
+                     (car files)))
         (when file
           (literate-expand-file file chunks)
           (when (and literate-lp-directory
@@ -1054,6 +1058,8 @@ chunks -- первая хеш-таблица возвращаемая parse-file
   (literate-go-to-body-position (point)))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
+У функции есть аргумент arg, если он равен 4(C-u), то у нас запрашивается имя файла,
+  который будет генерироваться.
 FIXME: при каждом вызове парсит файлы, нужно сделать кеширование.
 FIXME: "/" -- платформозависимо, неужели нет функции для генерации путей к файлам?
 
