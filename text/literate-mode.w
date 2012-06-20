@@ -380,7 +380,7 @@ end -- необязательный параметр; иногда конец с
     то они вставляются с такими отступами, которые у них были. Ни один пробел не удаляется.
 
 @d Expand targets -- insert & align text
-@{(let ((spaces-first-line (spaces-before-first-string chunks target-name))
+@{(let ((spaces-first-line (literate-spaces-before-first-string chunks target-name))
       tabs tabs-str)
   (setq tabs (- (- target-pos target-beg-line)
                 spaces-first-line))
@@ -444,7 +444,7 @@ TODO: хук для преобразования из табов в пробел
 
 Функция, которая возвращает число пробелов перед первой строкой чанка:
 @d Tangle @{
-(defun spaces-before-first-string (hash chunkname)
+(defun literate-spaces-before-first-string (hash chunkname)
   (let ((list (gethash chunkname hash)))
     (when list
       (let ((beg (1- (car (car (last list)))))
@@ -463,7 +463,7 @@ TODO: хук для преобразования из табов в пробел
 =============================================
 
 
-После того, как expand-file создал нам буфер с кодом и мы внесли в код некоторые
+После того, как literate-expand-file создал нам буфер с кодом и мы внесли в код некоторые
 изменения, возникает желание вернуть эти изменения в LP-файл.
 Основной функцией этого раздела будет buffer-to-LP, которая руководствуясь переменной
 *overlays* и оверлеями, на которые указывает *overlays*, будет заменять чанки
@@ -486,7 +486,7 @@ TODO: хук для преобразования из табов в пробел
 
 Для начала рассмотрим вспомогательную функцию:
 @d BackConverter @{
-(defun get-filenames-list-from-*overlays* ()
+(defun literate-get-filenames-list-from-*overlays* ()
   (let (list)
     (dolist (i *overlays*)
       (let ((chunk (car (overlay-get i 'literate-chunk))))
@@ -500,7 +500,7 @@ TODO: хук для преобразования из табов в пробел
 
 Ещё одна полезная функция:
 @d BackConverter @{
-(defun list-subtract (a b)
+(defun literate-list-subtract (a b)
   (remove-if (lambda (x) (member x b)) a))
 @}
 Она вычитает из одного списка другой. Возможно такая функция уже есть в emacs, но
@@ -511,7 +511,7 @@ TODO: хук для преобразования из табов в пробел
 @d BackConverter @{
 (defun buffer-to-LP ()
   (let ((*overlays* *overlays*)
-        (files (get-filenames-list-from-*overlays*)))
+        (files (literate-get-filenames-list-from-*overlays*)))
     ;; Create buffers
     @<Buffer to LP -- Create buffers@>
     ;; Create markers
@@ -579,7 +579,7 @@ write-region используется потому, как остальные ф
               end-overlays (caddr overlays-and-pos)
               rem-spaces (get-spaces-before-overlay beg-overlays end-overlays))
 
-        (setq *overlays* (list-subtract *overlays* overlays))
+        (setq *overlays* (literate-list-subtract *overlays* overlays))
 
         (dolist (i overlays)
           @<Buffer to LP -- insert code in LP & remove from tangled file@>)
@@ -703,8 +703,8 @@ overlays:
 @{(when (and beg-overlays
            (> pos beg-overlays))
   (let ((ret (get-overlays-near-pos-with-chunkname beg-overlays
-                                                   (list-subtract overlays-list
-                                                                  overlays)
+                                                   (literate-list-subtract overlays-list
+                                                                           overlays)
                                                    chunkname)))
     (setq overlays (append overlays (car ret)))
     (when (and (cadr ret)
@@ -718,8 +718,8 @@ overlays:
 @{(when (and end-overlays
            (< pos end-overlays))
   (let ((ret (get-overlays-near-pos-with-chunkname end-overlays
-                                                   (list-subtract overlays-list
-                                                                  overlays)
+                                                   (literate-list-subtract overlays-list
+                                                                           overlays)
                                                    chunkname)))
     (setq overlays (append overlays (car ret)))
     (when (and (caddr ret)

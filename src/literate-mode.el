@@ -233,7 +233,7 @@
 
         (if (gethash target-name chunks)
             (progn
-              (let ((spaces-first-line (spaces-before-first-string chunks target-name))
+              (let ((spaces-first-line (literate-spaces-before-first-string chunks target-name))
                     tabs tabs-str)
                 (setq tabs (- (- target-pos target-beg-line)
                               spaces-first-line))
@@ -272,7 +272,7 @@
         (goto-char point)))
     list))
 
-(defun spaces-before-first-string (hash chunkname)
+(defun literate-spaces-before-first-string (hash chunkname)
   (let ((list (gethash chunkname hash)))
     (when list
       (let ((beg (1- (car (car (last list)))))
@@ -284,7 +284,7 @@
           (1- (point)))))))
 
 
-(defun get-filenames-list-from-*overlays* ()
+(defun literate-get-filenames-list-from-*overlays* ()
   (let (list)
     (dolist (i *overlays*)
       (let ((chunk (car (overlay-get i 'literate-chunk))))
@@ -292,12 +292,12 @@
             (push (caddr chunk) list))))
     (delete-dups list)))
 
-(defun list-subtract (a b)
+(defun literate-list-subtract (a b)
   (remove-if (lambda (x) (member x b)) a))
 
 (defun buffer-to-LP ()
   (let ((*overlays* *overlays*)
-        (files (get-filenames-list-from-*overlays*)))
+        (files (literate-get-filenames-list-from-*overlays*)))
     ;; Create buffers
     (dolist (i files)
       (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix i))
@@ -332,7 +332,7 @@
                   end-overlays (caddr overlays-and-pos)
                   rem-spaces (get-spaces-before-overlay beg-overlays end-overlays))
 
-            (setq *overlays* (list-subtract *overlays* overlays))
+            (setq *overlays* (literate-list-subtract *overlays* overlays))
 
             (dolist (i overlays)
               (let ((markers (overlay-get i 'literate-marker)))
@@ -403,8 +403,8 @@
     (when (and beg-overlays
                (> pos beg-overlays))
       (let ((ret (get-overlays-near-pos-with-chunkname beg-overlays
-                                                       (list-subtract overlays-list
-                                                                      overlays)
+                                                       (literate-list-subtract overlays-list
+                                                                               overlays)
                                                        chunkname)))
         (setq overlays (append overlays (car ret)))
         (when (and (cadr ret)
@@ -414,8 +414,8 @@
     (when (and end-overlays
                (< pos end-overlays))
       (let ((ret (get-overlays-near-pos-with-chunkname end-overlays
-                                                       (list-subtract overlays-list
-                                                                      overlays)
+                                                       (literate-list-subtract overlays-list
+                                                                               overlays)
                                                        chunkname)))
         (setq overlays (append overlays (car ret)))
         (when (and (caddr ret)
