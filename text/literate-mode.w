@@ -403,7 +403,7 @@ end -- необязательный параметр; иногда конец с
 В конце удаляем пробелы перед первой строкой, тогда она будет выравнена по начальной
   позиции тега.
 Так как literate-insert-parts-of-chunks помещает новые оверлеи на вершину списка
-  в переменной *overlays*, то нижележащие слои будут идти в списке после вышележащих.
+  в переменной literate-overlays, то нижележащие слои будут идти в списке после вышележащих.
 
 
 @d Expand targets -- insert spaces
@@ -432,15 +432,22 @@ end -- необязательный параметр; иногда конец с
             (end (1- (cadr i))))
         (insert-file-contents-literally file nil beg end)
         (let ((overlay (make-overlay point (+ point (- end beg)))))
-          (push overlay *overlays*)
+          (push overlay literate-overlays)
           (overlay-put overlay 'literate-chunk (list i chunkname)))
         (setq point (+ point (- end beg)))
         (goto-char point)))
     list))
 @}
 Эта функция всегда устанавливает курсор после вставленного текста.
-Созданные оверлеи помещаются в начало списка в динамической переменной *overlays*.
+Созданные оверлеи помещаются в начало списка literate-overlays.
 TODO: хук для преобразования из табов в пробелы
+
+В этой переменной будет хранится список оверлеев:
+@d Variables @{
+(defvar literate-overlays nil)
+@}
+на всякий случай напомню, что у оверлеев есть свойства и там хранится
+  много информации.
 
 Функция, которая возвращает число пробелов перед первой строкой чанка:
 @d Tangle @{
@@ -486,9 +493,9 @@ TODO: хук для преобразования из табов в пробел
 
 Для начала рассмотрим вспомогательную функцию:
 @d BackConverter @{
-(defun literate-get-filenames-list-from-*overlays* ()
+(defun literate-get-filenames-list-from-overlays ()
   (let (list)
-    (dolist (i *overlays*)
+    (dolist (i literate-overlays)
       (let ((chunk (car (overlay-get i 'literate-chunk))))
         (if chunk
             (push (caddr chunk) list))))
@@ -510,8 +517,8 @@ TODO: хук для преобразования из табов в пробел
 Внутри активно используется содержимое переменной *overlays*.
 @d BackConverter @{
 (defun literate-buffer-to-LP ()
-  (let ((*overlays* *overlays*)
-        (files (literate-get-filenames-list-from-*overlays*)))
+  (let ((literate-overlays literate-overlays)
+        (files (literate-get-filenames-list-from-overlays)))
     ;; Create buffers
     @<Buffer to LP -- Create buffers@>
     ;; Create markers
@@ -540,7 +547,7 @@ write-region используется потому, как остальные ф
 мы расставим маркеры, нам будет уже не страшны изменения размеров блоков -- маркеры
 будут менять своё положение вместе с изменениями текста:
 @d Buffer to LP -- Create markers
-@{(dolist (i *overlays*)
+@{(dolist (i literate-overlays)
   (let* ((chunk (car (overlay-get i 'literate-chunk)))
          (bufname (concat literate-buffer-prefix (caddr chunk)))
          (beg-marker (make-marker))
@@ -562,8 +569,8 @@ write-region используется потому, как остальные ф
 оверлеи-соседи. Вся эта фигня с поиском соседей сделана, чтобы лучше выровнять
 код в чанках.
 @d Buffer to LP -- Update chunks in LP
-@{(while *overlays*
-  (let* ((overlay (car *overlays*))
+@{(while literate-overlays
+  (let* ((overlay (car literate-overlays))
          (chunkname (cadr (overlay-get overlay 'literate-chunk))))
 
     (with-current-buffer (overlay-buffer overlay)
@@ -571,7 +578,7 @@ write-region используется потому, как остальные ф
 
         (setq overlays-and-pos (literate-get-overlays-near-pos-with-chunkname
                                 (overlay-start overlay)
-                                *overlays*
+                                literate-overlays
                                 chunkname))
         (makunbound 'overlay)
 
@@ -580,7 +587,8 @@ write-region используется потому, как остальные ф
               end-overlays (caddr overlays-and-pos)
               rem-spaces (literate-get-spaces-before-overlay beg-overlays end-overlays))
 
-        (setq *overlays* (literate-list-subtract *overlays* overlays))
+        (setq literate-overlays (literate-list-subtract literate-overlays
+                                                        overlays))
 
         (dolist (i overlays)
           @<Buffer to LP -- insert code in LP & remove from tangled file@>)
@@ -995,7 +1003,7 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
   (let ((cur-point (position-bytes pos))
         (filename-buffer (buffer-file-name)))
     (when filename-buffer
-      (dolist (i *overlays*)
+      (dolist (i literate-overlays)
         (let* ((chunk (car (overlay-get i 'literate-chunk)))
                (beg (car chunk))
                (end (cadr chunk))
@@ -1032,10 +1040,10 @@ chunks -- первая хеш-таблица возвращаемая parse-file
 @d Interactive @{
 (defun literate-generate-and-go (pos)
   (interactive "d")
-  (setq *overlays*
+  (setq literate-overlays
         (let ((parse (literate-parse-file (concat literate-lp-directory "/"
                                                   literate-lp-filename)))
-              (*overlays* (list)))
+              (literate-overlays (list)))
           (let ((chunks (car parse))
                 (dependences (cadr parse))
                 (files (caddr parse)))
@@ -1049,7 +1057,7 @@ chunks -- первая хеш-таблица возвращаемая parse-file
                     (write-file (concat literate-lp-directory "/"
                                         literate-src-dir "/"
                                         file)))))))
-          *overlays*))
+          literate-overlays))
   (literate-go-to-body-position (point)))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
@@ -1061,9 +1069,9 @@ FIXME: "/" -- платформозависимо, неужели нет функ
 @d Interactive @{
 (defun literate-go-back ()
   (interactive)
-  (when (and *overlays*
-             (overlay-buffer (car (last *overlays*))))
-    (let ((buffer (overlay-buffer (car *overlays*))))
+  (when (and literate-overlays
+             (overlay-buffer (car (last literate-overlays))))
+    (let ((buffer (overlay-buffer (car literate-overlays))))
       (with-current-buffer buffer
         (when (buffer-file-name)
           (save-buffer)))
@@ -1071,7 +1079,7 @@ FIXME: "/" -- платформозависимо, неужели нет функ
       (with-current-buffer buffer
         (set-buffer-modified-p nil)
         (kill-buffer))
-      (setq *overlays* nil))))
+      (setq literate-overlays nil))))
 @}
 если есть прикреплённый файл, то сохраняет в него. В конце закрывает буфер.
 revert не делает, но принципе можно будет сделать, если понадобится.

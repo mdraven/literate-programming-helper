@@ -26,6 +26,8 @@
   :type '(string))
 
 
+(defvar literate-overlays nil)
+
 (defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
 (defvar literate-lp-syntax nil)
@@ -266,7 +268,7 @@
             (end (1- (cadr i))))
         (insert-file-contents-literally file nil beg end)
         (let ((overlay (make-overlay point (+ point (- end beg)))))
-          (push overlay *overlays*)
+          (push overlay literate-overlays)
           (overlay-put overlay 'literate-chunk (list i chunkname)))
         (setq point (+ point (- end beg)))
         (goto-char point)))
@@ -284,9 +286,9 @@
           (1- (point)))))))
 
 
-(defun literate-get-filenames-list-from-*overlays* ()
+(defun literate-get-filenames-list-from-overlays ()
   (let (list)
-    (dolist (i *overlays*)
+    (dolist (i literate-overlays)
       (let ((chunk (car (overlay-get i 'literate-chunk))))
         (if chunk
             (push (caddr chunk) list))))
@@ -296,14 +298,14 @@
   (remove-if (lambda (x) (member x b)) a))
 
 (defun literate-buffer-to-LP ()
-  (let ((*overlays* *overlays*)
-        (files (literate-get-filenames-list-from-*overlays*)))
+  (let ((literate-overlays literate-overlays)
+        (files (literate-get-filenames-list-from-overlays)))
     ;; Create buffers
     (dolist (i files)
       (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix i))
         (insert-file-contents-literally i)))
     ;; Create markers
-    (dolist (i *overlays*)
+    (dolist (i literate-overlays)
       (let* ((chunk (car (overlay-get i 'literate-chunk)))
              (bufname (concat literate-buffer-prefix (caddr chunk)))
              (beg-marker (make-marker))
@@ -315,8 +317,8 @@
           (set-marker end-marker (cadr chunk))
           (overlay-put i 'literate-marker (list beg-marker end-marker)))))
     ;; Update chunks in LP
-    (while *overlays*
-      (let* ((overlay (car *overlays*))
+    (while literate-overlays
+      (let* ((overlay (car literate-overlays))
              (chunkname (cadr (overlay-get overlay 'literate-chunk))))
 
         (with-current-buffer (overlay-buffer overlay)
@@ -324,7 +326,7 @@
 
             (setq overlays-and-pos (literate-get-overlays-near-pos-with-chunkname
                                     (overlay-start overlay)
-                                    *overlays*
+                                    literate-overlays
                                     chunkname))
             (makunbound 'overlay)
 
@@ -333,7 +335,8 @@
                   end-overlays (caddr overlays-and-pos)
                   rem-spaces (literate-get-spaces-before-overlay beg-overlays end-overlays))
 
-            (setq *overlays* (literate-list-subtract *overlays* overlays))
+            (setq literate-overlays (literate-list-subtract literate-overlays
+                                                            overlays))
 
             (dolist (i overlays)
               (let ((markers (overlay-get i 'literate-marker)))
@@ -576,7 +579,7 @@
   (let ((cur-point (position-bytes pos))
         (filename-buffer (buffer-file-name)))
     (when filename-buffer
-      (dolist (i *overlays*)
+      (dolist (i literate-overlays)
         (let* ((chunk (car (overlay-get i 'literate-chunk)))
                (beg (car chunk))
                (end (cadr chunk))
@@ -603,10 +606,10 @@
 
 (defun literate-generate-and-go (pos)
   (interactive "d")
-  (setq *overlays*
+  (setq literate-overlays
         (let ((parse (literate-parse-file (concat literate-lp-directory "/"
                                                   literate-lp-filename)))
-              (*overlays* (list)))
+              (literate-overlays (list)))
           (let ((chunks (car parse))
                 (dependences (cadr parse))
                 (files (caddr parse)))
@@ -620,14 +623,14 @@
                     (write-file (concat literate-lp-directory "/"
                                         literate-src-dir "/"
                                         file)))))))
-          *overlays*))
+          literate-overlays))
   (literate-go-to-body-position (point)))
 
 (defun literate-go-back ()
   (interactive)
-  (when (and *overlays*
-             (overlay-buffer (car (last *overlays*))))
-    (let ((buffer (overlay-buffer (car *overlays*))))
+  (when (and literate-overlays
+             (overlay-buffer (car (last literate-overlays))))
+    (let ((buffer (overlay-buffer (car literate-overlays))))
       (with-current-buffer buffer
         (when (buffer-file-name)
           (save-buffer)))
@@ -635,7 +638,7 @@
       (with-current-buffer buffer
         (set-buffer-modified-p nil)
         (kill-buffer))
-      (setq *overlays* nil))))
+      (setq literate-overlays nil))))
 
 
 
