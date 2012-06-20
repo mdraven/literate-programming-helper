@@ -82,9 +82,10 @@
       (let (subtype name body-beg body-end tags next-chunk)
         (let ((flag (buffer-substring-no-properties beg-pos (+ beg-pos 2))))
           (setq subtype
-                (cond
-                 ((string= "@o" flag) 'file-chunk)
-                 ((string= "@d" flag) 'chunk))))
+                (literate-case-string
+                 flag
+                 ("@o" 'file-chunk)
+                 ("@d" 'chunk))))
         (let (open tag close)
           (save-excursion
             (goto-char beg-pos)
@@ -98,10 +99,11 @@
                                 (setq quote line-num)
                               (setq quote 0)))
                         (if (/= quote line-num)
-                            (cond
-                             ((string= match "@{") (or open (setq open (point))))
-                             ((string= match "@|") (or tag (setq tag (point))))
-                             ((string= match "@}") (setq close (point)))))
+                            (literate-case-string
+                             match
+                             ("@{" (or open (setq open (point))))
+                             ("@|" (or tag (setq tag (point))))
+                             ("@}" (setq close (point)))))
                         (not close))))))
           (or (and open tag close (< open tag) (< tag close)
                    (setq body-end (- tag 2)
@@ -376,7 +378,7 @@
     (save-current-buffer
       (dolist (i files)
         (set-buffer (concat literate-buffer-prefix i))
-        (write-file i)
+        (write-region (point-min) (point-max) i)
         (kill-buffer)))))
 
 (defun get-overlays-near-pos-with-chunkname (pos overlays-list chunkname)
@@ -630,8 +632,8 @@
           (save-buffer)))
       (buffer-to-LP)
       (with-current-buffer buffer
-        (set-buffer-modified-p nil))
-      (kill-buffer buffer)
+        (set-buffer-modified-p nil)
+        (kill-buffer))
       (setq *overlays* nil))))
 
 
