@@ -295,7 +295,7 @@
 (defun literate-list-subtract (a b)
   (remove-if (lambda (x) (member x b)) a))
 
-(defun buffer-to-LP ()
+(defun literate-buffer-to-LP ()
   (let ((*overlays* *overlays*)
         (files (literate-get-filenames-list-from-*overlays*)))
     ;; Create buffers
@@ -330,7 +330,7 @@
             (setq overlays (car overlays-and-pos)
                   beg-overlays (cadr overlays-and-pos)
                   end-overlays (caddr overlays-and-pos)
-                  rem-spaces (get-spaces-before-overlay beg-overlays end-overlays))
+                  rem-spaces (literate-get-spaces-before-overlay beg-overlays end-overlays))
 
             (setq *overlays* (literate-list-subtract *overlays* overlays))
 
@@ -423,7 +423,7 @@
           (setq end-overlays (caddr ret)))))
     (list overlays beg-overlays end-overlays)))
 
-(defun get-spaces-before-overlay (beg-pos end-pos)
+(defun literate-get-spaces-before-overlay (beg-pos end-pos)
   (let (rem-first rem-other shift-target)
     (save-excursion
       (let (beg-code target-num-spaces other-num-spaces first-num-spaces)
@@ -628,7 +628,7 @@
       (with-current-buffer buffer
         (when (buffer-file-name)
           (save-buffer)))
-      (buffer-to-LP)
+      (literate-buffer-to-LP)
       (with-current-buffer buffer
         (set-buffer-modified-p nil)
         (kill-buffer))
