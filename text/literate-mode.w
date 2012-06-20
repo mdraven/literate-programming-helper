@@ -23,14 +23,12 @@
 @d Customs @{
 (defcustom literate-buffer-prefix "literate-"
   "Prefix string for literate-mode"
-  :type '(string))
-@}
+  :type '(string))@}
 
 
 Используются функции из CL:
-@d Requires @{
-(require 'cl)
-@}
+@d Requires
+@{(require 'cl)@}
 
 Парсер
 ======
@@ -444,8 +442,7 @@ TODO: хук для преобразования из табов в пробел
 
 В этой переменной будет хранится список оверлеев:
 @d Variables @{
-(defvar literate-overlays nil)
-@}
+(defvar literate-overlays nil)@}
 на всякий случай напомню, что у оверлеев есть свойства и там хранится
   много информации.
 
@@ -649,8 +646,8 @@ TODO: надо сделать хук для преобразования из п
 Так как весь блок чанков с одним именем центрируется по первой строке первого чанка, то,
 казалось бы, первые строки остальных чанков можно не учитывать и обрабатывать как остальные.
 Но бывают случаи когда перед первой строкой одного чанка есть последняя строка предыдущего:
-в таком случае пробелы отбрасываться не будут, так как при вызове get-spaces-before-overlay
-они не учитывались:
+в таком случае пробелы отбрасываться не будут, так как при вызове
+literate-get-spaces-before-overlay они не учитывались:
 @d Buffer to LP -- remove spaces before chunk's first line 
 @{(when (and (/= beg-body beg-overlays)
            (< (point) (marker-position (cadr markers))))
@@ -821,8 +818,7 @@ overlays:
 @d Customs @{
 (defcustom literate-project-filename "lp-project"
   "Project filename for literate-mode"
-  :type '(string))
-@}
+  :type '(string))@}
 literate-project-filename -- имя для проектных файлов по-умолчанию
 
 Переменные проекта:
@@ -831,8 +827,7 @@ literate-project-filename -- имя для проектных файлов по-
 (defvar literate-lp-directory nil)
 (defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
-(defvar literate-src-dir nil)
-@}
+(defvar literate-src-dir nil)@}
 literate-syntax-types -- допустимые типы синтаксиса LP-текста.
 literate-lp-directory -- путь до директории проекта. Остальные пути должны быть относительно
   этой директории. Если nil, то файл проекта не открыт.
@@ -1092,8 +1087,7 @@ TODO: Для fridge https://github.com/m2ym/yascroll-el
 
 
 @d Provide @{
-(provide 'literate-mode)
-@}
+(provide 'literate-mode)@}
 
 @d License
 @{;; literate-mode - support literate programming for emacs

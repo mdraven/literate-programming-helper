@@ -20,24 +20,18 @@
 (defcustom literate-buffer-prefix "literate-"
   "Prefix string for literate-mode"
   :type '(string))
-
 (defcustom literate-project-filename "lp-project"
   "Project filename for literate-mode"
   :type '(string))
 
-
 (defvar literate-overlays nil)
-
 (defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
 (defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)
 
-
-
 (require 'cl)
-
 
 
 (defmacro literate-case-string (expr &rest clauses)
@@ -643,4 +637,3 @@
 
 
 (provide 'literate-mode)
-
