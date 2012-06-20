@@ -202,7 +202,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 вместо того, чтобы переписать всё на структурах(а мне лень), определим функцию
 которая вычленит это поле и вернёт содержимое:
 @d Parser @{
-(defun next-chunk-begin (chunk)
+(defun literate-next-chunk-begin (chunk)
   (case (car chunk)
     ('chunk (cadddr (cddr chunk)))
     ('file-chunk (cadddr (cddr chunk)))
@@ -219,7 +219,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 ещё список генерируемых файлов(те, что @o в nuweb), это список листьев
 для chunks-dependences:
 @d Parser @{
-(defun parse-file (filename)
+(defun literate-parse-file (filename)
   (let ((chunks-by-name (make-hash-table :test #'equal))
         (chunks-dependences (make-hash-table :test #'equal))
         (chunks-files (list)))
@@ -284,7 +284,7 @@ TODO: заменить поиск цели в других местах на в�
           (let ((next-chunk-pos 1) chunk)
             (while (progn
                      (setq chunk (literate-nuweb-parser next-chunk-pos)
-                           next-chunk-pos (next-chunk-begin chunk))
+                           next-chunk-pos (literate-next-chunk-begin chunk))
                      (case (car chunk)
                        ('chunk (conc-to-hash (cadr chunk)
                                              (caddr chunk)
@@ -1029,8 +1029,8 @@ chunks -- первая хеш-таблица возвращаемая parse-file
 (defun literate-generate-and-go (pos)
   (interactive "d")
   (setq *overlays*
-        (let ((parse (parse-file (concat literate-lp-directory "/"
-                                         literate-lp-filename)))
+        (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+                                                  literate-lp-filename)))
               (*overlays* (list)))
           (let ((chunks (car parse))
                 (dependences (cadr parse))

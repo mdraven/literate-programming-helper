@@ -145,14 +145,14 @@
                               (match-string-no-properties 1)))))
             (list 'include name beg-pos next-chunk)))))
 
-(defun next-chunk-begin (chunk)
+(defun literate-next-chunk-begin (chunk)
   (case (car chunk)
     ('chunk (cadddr (cddr chunk)))
     ('file-chunk (cadddr (cddr chunk)))
     ('include (cadddr chunk))
     ('text (caddr chunk))))
 
-(defun parse-file (filename)
+(defun literate-parse-file (filename)
   (let ((chunks-by-name (make-hash-table :test #'equal))
         (chunks-dependences (make-hash-table :test #'equal))
         (chunks-files (list)))
@@ -184,7 +184,7 @@
                        (let ((next-chunk-pos 1) chunk)
                          (while (progn
                                   (setq chunk (literate-nuweb-parser next-chunk-pos)
-                                        next-chunk-pos (next-chunk-begin chunk))
+                                        next-chunk-pos (literate-next-chunk-begin chunk))
                                   (case (car chunk)
                                     ('chunk (conc-to-hash (cadr chunk)
                                                           (caddr chunk)
@@ -601,8 +601,8 @@
 (defun literate-generate-and-go (pos)
   (interactive "d")
   (setq *overlays*
-        (let ((parse (parse-file (concat literate-lp-directory "/"
-                                         literate-lp-filename)))
+        (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+                                                  literate-lp-filename)))
               (*overlays* (list)))
           (let ((chunks (car parse))
                 (dependences (cadr parse))
