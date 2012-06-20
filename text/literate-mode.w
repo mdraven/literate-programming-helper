@@ -991,8 +991,8 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
     (when filename-buffer
       (dolist (i *overlays*)
         (let* ((chunk (car (overlay-get i 'literate-chunk)))
-               (beg (1- (car chunk)))
-               (end (1- (cadr chunk)))
+               (beg (car chunk))
+               (end (cadr chunk))
                (filename-chunk (caddr chunk)))
           (when (and (num-between beg cur-point end)
                      (string= filename-buffer (expand-file-name filename-chunk)))
@@ -1004,6 +1004,74 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
 pos -- это тело чанка без заголовка.
 Функция использует переменную *overlays*.
 
+Функция возвращающая имя чанка на тело которого находится в позиции pos:
+@d Interactive @{
+(defun literate-get-chunk-name (chunks pos)
+  (let (chunk-name)
+    (catch 'break
+      (let ((cur-point (position-bytes pos))
+            (filename-buffer (buffer-file-name)))
+        (maphash (lambda (key val)
+                   (dolist (i val)
+                     (when (and (num-between (car i) cur-point (cadr i))
+                                (string= filename-buffer (expand-file-name (caddr i))))
+                       (setq chunk-name key)
+                       (throw 'break t))))
+                 chunks)))
+    chunk-name))
+@}
+chunks -- первая хеш-таблица возвращаемая parse-file.
+
+Функция которая генерирует исходный код и переходит к чанку в этом исходном коде:
+@d Interactive @{
+(defun literate-generate-and-go (pos)
+  (interactive "d")
+  (setq *overlays*
+        (let ((parse (parse-file (concat literate-lp-directory "/"
+                                         literate-lp-filename)))
+              (*overlays* (list)))
+          (let ((chunks (car parse))
+                (dependences (cadr parse))
+                (files (caddr parse)))
+            (let ((file (car (get-target-files dependences files
+                                               (literate-get-chunk-name chunks (point))))))
+              (when file
+                (expand-file file chunks)
+                (when (and literate-lp-directory
+                           literate-src-dir)
+                  (with-current-buffer (concat literate-buffer-prefix file)
+                    (write-file (concat literate-lp-directory "/"
+                                        literate-src-dir "/"
+                                        file)))))))
+          *overlays*))
+  (go-to-body-position (point)))
+@}
+после создания буфера с кодом прикрепляет к нему файл.
+FIXME: при каждом вызове парсит файлы, нужно сделать кеширование.
+FIXME: "/" -- платформозависимо, неужели нет функции для генерации путей к файлам?
+
+
+Функция возвращения из сгенерированного кода:
+@d Interactive @{
+(defun literate-go-back ()
+  (interactive)
+  (when (and *overlays*
+             (overlay-buffer (car (last *overlays*))))
+    (let ((buffer (overlay-buffer (car *overlays*))))
+      (with-current-buffer buffer
+        (when (buffer-file-name)
+          (save-buffer)))
+      (buffer-to-LP)
+      (with-current-buffer buffer
+        (set-buffer-modified-p nil))
+      (kill-buffer buffer)
+      (setq *overlays* nil))))
+@}
+если есть прикреплённый файл, то сохраняет в него. В конце закрывает буфер.
+revert не делает, но принципе можно будет сделать, если понадобится.
+Использует тот факт, что в конце *overlays* лежит оверлей самого верхнего уровня,
+  тот самый который не удаляется после buffer-to-LP. Если он не прикреплён к буферу,
+  то значит или буфер удалён, или удалён сам оверлей и обрабатывать уже нечего.
 
 
 TODO: Для fridge https://github.com/m2ym/yascroll-el
