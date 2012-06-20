@@ -1035,24 +1035,22 @@ chunks -- первая хеш-таблица возвращаемая parse-file
 @d Interactive @{
 (defun literate-generate-and-go (pos)
   (interactive "d")
-  (setq literate-overlays
-        (let ((parse (literate-parse-file (concat literate-lp-directory "/"
-                                                  literate-lp-filename)))
-              (literate-overlays (list)))
-          (let ((chunks (car parse))
-                (dependences (cadr parse))
-                (files (caddr parse)))
-            (let ((file (car (literate-get-target-files dependences files
-                                                        (literate-get-chunk-name chunks (point))))))
-              (when file
-                (literate-expand-file file chunks)
-                (when (and literate-lp-directory
-                           literate-src-dir)
-                  (with-current-buffer (concat literate-buffer-prefix file)
-                    (write-file (concat literate-lp-directory "/"
-                                        literate-src-dir "/"
-                                        file)))))))
-          literate-overlays))
+  (setq literate-overlays (list))
+  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+                                            literate-lp-filename))))
+    (let ((chunks (car parse))
+          (dependences (cadr parse))
+          (files (caddr parse)))
+      (let ((file (car (literate-get-target-files dependences files
+                                                  (literate-get-chunk-name chunks (point))))))
+        (when file
+          (literate-expand-file file chunks)
+          (when (and literate-lp-directory
+                     literate-src-dir)
+            (with-current-buffer (concat literate-buffer-prefix file)
+              (write-file (concat literate-lp-directory "/"
+                                  literate-src-dir "/"
+                                  file))))))))
   (literate-go-to-body-position (point)))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
