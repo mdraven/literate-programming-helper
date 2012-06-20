@@ -555,7 +555,7 @@
               ("SrcDir" (setq literate-src-dir val)))))))))
 
 
-(defun get-target-files (chunks-dependences chunks-files chunk-name)
+(defun literate-get-target-files (chunks-dependences chunks-files chunk-name)
   (let ((files (list))
         (visited-chunks (list)))
     (labels ((helper (chunk-name)
@@ -568,7 +568,7 @@
       (helper chunk-name))
     files))
 
-(defun go-to-body-position (pos)
+(defun literate-go-to-body-position (pos)
   (interactive "d")
   (let ((cur-point (position-bytes pos))
         (filename-buffer (buffer-file-name)))
@@ -607,8 +607,8 @@
           (let ((chunks (car parse))
                 (dependences (cadr parse))
                 (files (caddr parse)))
-            (let ((file (car (get-target-files dependences files
-                                               (literate-get-chunk-name chunks (point))))))
+            (let ((file (car (literate-get-target-files dependences files
+                                                        (literate-get-chunk-name chunks (point))))))
               (when file
                 (literate-expand-file file chunks)
                 (when (and literate-lp-directory
@@ -618,7 +618,7 @@
                                         literate-src-dir "/"
                                         file)))))))
           *overlays*))
-  (go-to-body-position (point)))
+  (literate-go-to-body-position (point)))
 
 (defun literate-go-back ()
   (interactive)

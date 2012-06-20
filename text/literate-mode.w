@@ -959,7 +959,7 @@ FIXME: не проверяет, что proj-file -- директория
 Функция которая возвращает список имен файлов(тег @o в nuweb), которые
 содержат чанк chunk-name:
 @d Interactive @{
-(defun get-target-files (chunks-dependences chunks-files chunk-name)
+(defun literate-get-target-files (chunks-dependences chunks-files chunk-name)
   (let ((files (list))
         (visited-chunks (list)))
     (labels ((helper (chunk-name)
@@ -987,7 +987,7 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
 
 Функция для перехода из LP-текста в сгенерированный исходный код:
 @d Interactive @{
-(defun go-to-body-position (pos)
+(defun literate-go-to-body-position (pos)
   (interactive "d")
   (let ((cur-point (position-bytes pos))
         (filename-buffer (buffer-file-name)))
@@ -1036,8 +1036,8 @@ chunks -- первая хеш-таблица возвращаемая parse-file
           (let ((chunks (car parse))
                 (dependences (cadr parse))
                 (files (caddr parse)))
-            (let ((file (car (get-target-files dependences files
-                                               (literate-get-chunk-name chunks (point))))))
+            (let ((file (car (literate-get-target-files dependences files
+                                                        (literate-get-chunk-name chunks (point))))))
               (when file
                 (literate-expand-file file chunks)
                 (when (and literate-lp-directory
@@ -1047,7 +1047,7 @@ chunks -- первая хеш-таблица возвращаемая parse-file
                                         literate-src-dir "/"
                                         file)))))))
           *overlays*))
-  (go-to-body-position (point)))
+  (literate-go-to-body-position (point)))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
 FIXME: при каждом вызове парсит файлы, нужно сделать кеширование.
