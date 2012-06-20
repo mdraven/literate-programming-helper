@@ -66,17 +66,17 @@
         (>= ind (min (point-at-eol) end))
       (eql ind (point-at-eol)))))
 
-(defun num-between (a b c)
+(defun literate-num-between (a b c)
   (and (<= a b)
        (<= b c)))
 
 
-(defun nuweb-parser (beg-pos)
-  (or (code-chunk-p (nuweb-code-chunk-parser beg-pos))
-      (nuweb-include-chunk-parser beg-pos)
-      (nuweb-text-chunk-parser beg-pos)))
+(defun literate-nuweb-parser (beg-pos)
+  (or (code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+      (literate-nuweb-include-chunk-parser beg-pos)
+      (literate-nuweb-text-chunk-parser beg-pos)))
 
-(defun nuweb-code-chunk-parser (beg-pos)
+(defun literate-nuweb-code-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
          (point-max))
       (let (subtype name body-beg body-end tags next-chunk)
@@ -123,7 +123,7 @@
 (defun code-chunk-p (chunk)
   (and (car chunk) (cadr chunk) (caddr chunk) (cadddr chunk) chunk))
 
-(defun nuweb-text-chunk-parser (beg-pos)
+(defun literate-nuweb-text-chunk-parser (beg-pos)
   (let (body-end)
     (setq body-end (or (let ((a (save-excursion
                                   (goto-char (+ beg-pos 1))
@@ -132,7 +132,7 @@
                        (point-max)))
     (list 'text beg-pos body-end)))
 
-(defun nuweb-include-chunk-parser (beg-pos)
+(defun literate-nuweb-include-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
          (point-max))
       (if (string= (buffer-substring-no-properties beg-pos (+ beg-pos 2))
@@ -184,7 +184,7 @@
                        (insert-file-contents-literally filename)
                        (let ((next-chunk-pos 1) chunk)
                          (while (progn
-                                  (setq chunk (nuweb-parser next-chunk-pos)
+                                  (setq chunk (literate-nuweb-parser next-chunk-pos)
                                         next-chunk-pos (next-chunk-begin chunk))
                                   (case (car chunk)
                                     ('chunk (conc-to-hash (cadr chunk)
@@ -580,7 +580,7 @@
                (beg (car chunk))
                (end (cadr chunk))
                (filename-chunk (caddr chunk)))
-          (when (and (num-between beg cur-point end)
+          (when (and (literate-num-between beg cur-point end)
                      (string= filename-buffer (expand-file-name filename-chunk)))
             (switch-to-buffer (overlay-buffer i))
             (goto-char (overlay-start i))
@@ -593,7 +593,7 @@
             (filename-buffer (buffer-file-name)))
         (maphash (lambda (key val)
                    (dolist (i val)
-                     (when (and (num-between (car i) cur-point (cadr i))
+                     (when (and (literate-num-between (car i) cur-point (cadr i))
                                 (string= filename-buffer (expand-file-name (caddr i))))
                        (setq chunk-name key)
                        (throw 'break t))))

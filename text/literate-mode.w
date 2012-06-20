@@ -38,10 +38,10 @@
 Для начала определим функцию, которая будет принимать позицию в буфере
 и возвращать чанк, который начинается с этой позиции:
 @d Parser @{
-(defun nuweb-parser (beg-pos)
-  (or (code-chunk-p (nuweb-code-chunk-parser beg-pos))
-      (nuweb-include-chunk-parser beg-pos)
-      (nuweb-text-chunk-parser beg-pos)))
+(defun literate-nuweb-parser (beg-pos)
+  (or (code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+      (literate-nuweb-include-chunk-parser beg-pos)
+      (literate-nuweb-text-chunk-parser beg-pos)))
 @}
 вначале она пытается парсить как чанк с кодом, потом как чанк, который
 подключает другой LP-файл, потом как чанк с текстом.
@@ -70,7 +70,7 @@ FIXME:Данная версия не принимает t
 
 Напишем парсер для кода:
 @d Parser @{
-(defun nuweb-code-chunk-parser (beg-pos)
+(defun literate-nuweb-code-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
          (point-max))
       (let (subtype name body-beg body-end tags next-chunk)
@@ -169,7 +169,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 
 Парсер чанков с текстом:
 @d Parser @{
-(defun nuweb-text-chunk-parser (beg-pos)
+(defun literate-nuweb-text-chunk-parser (beg-pos)
   (let (body-end)
     (setq body-end (or (let ((a (save-excursion
                                   (goto-char (+ beg-pos 1))
@@ -182,7 +182,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 
 Парсер чанков, которые подключают LP-файлы:
 @d Parser @{
-(defun nuweb-include-chunk-parser (beg-pos)
+(defun literate-nuweb-include-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
          (point-max))
       (if (string= (buffer-substring-no-properties beg-pos (+ beg-pos 2))
@@ -284,7 +284,7 @@ TODO: заменить поиск цели в других местах на в�
           (insert-file-contents-literally filename)
           (let ((next-chunk-pos 1) chunk)
             (while (progn
-                     (setq chunk (nuweb-parser next-chunk-pos)
+                     (setq chunk (literate-nuweb-parser next-chunk-pos)
                            next-chunk-pos (next-chunk-begin chunk))
                      (case (car chunk)
                        ('chunk (conc-to-hash (cadr chunk)
@@ -980,7 +980,7 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
 
 Функция возвращает t, если 'b' между 'a' и 'c':
 @d Helpers @{
-(defun num-between (a b c)
+(defun literate-num-between (a b c)
   (and (<= a b)
        (<= b c)))
 @}
@@ -998,7 +998,7 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
                (beg (car chunk))
                (end (cadr chunk))
                (filename-chunk (caddr chunk)))
-          (when (and (num-between beg cur-point end)
+          (when (and (literate-num-between beg cur-point end)
                      (string= filename-buffer (expand-file-name filename-chunk)))
             (switch-to-buffer (overlay-buffer i))
             (goto-char (overlay-start i))
@@ -1017,7 +1017,7 @@ pos -- это тело чанка без заголовка.
             (filename-buffer (buffer-file-name)))
         (maphash (lambda (key val)
                    (dolist (i val)
-                     (when (and (num-between (car i) cur-point (cadr i))
+                     (when (and (literate-num-between (car i) cur-point (cadr i))
                                 (string= filename-buffer (expand-file-name (caddr i))))
                        (setq chunk-name key)
                        (throw 'break t))))
