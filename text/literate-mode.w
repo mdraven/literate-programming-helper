@@ -312,7 +312,7 @@ parse-file возвращает таблицу с информацией по ч
 
 Для начала напишем функцию, которая определяет пустая это строка или нет:
 @d Helpers @{
-(defun empty-line-p (&optional end)
+(defun literate-empty-line-p (&optional end)
   (let ((cur (point))
         ind)
     (back-to-indentation)
@@ -409,7 +409,7 @@ end -- необязательный параметр; иногда конец с
 @{(let ((end-of-chunks-block (point)))
   (while (> (point-at-bol) target-beg-line)
     (move-beginning-of-line nil)
-    (unless (empty-line-p end-of-chunks-block)
+    (unless (literate-empty-line-p end-of-chunks-block)
       (insert tabs-str))
     (forward-line -1)))@}
 Учитываются пустые строки, перед ними пробелы не ставятся.
@@ -645,7 +645,7 @@ TODO: надо сделать хук для преобразования из п
 @{(when (and (/= beg-body beg-overlays)
            (< (point) (marker-position (cadr markers))))
   (unless (and something-written-before-body
-               (empty-line-p))
+               (literate-empty-line-p))
     (delete-char (cadr rem-spaces)))
   (forward-line 1))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.
@@ -653,7 +653,7 @@ TODO: надо сделать хук для преобразования из п
 Удаляем пробелы перед остальными строками в чанках:
 @d Buffer to LP -- remove spaces before other chunk's lines
 @{(while (< (point) (marker-position (cadr markers)))
-  (unless (empty-line-p)
+  (unless (literate-empty-line-p)
     (delete-char (cadr rem-spaces)))
   (forward-line 1))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.

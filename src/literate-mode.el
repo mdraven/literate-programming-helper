@@ -57,7 +57,7 @@
     (setq str (replace-match "" t t str)))
   str)
 
-(defun empty-line-p (&optional end)
+(defun literate-empty-line-p (&optional end)
   (let ((cur (point))
         ind)
     (back-to-indentation)
@@ -247,7 +247,7 @@
                 (let ((end-of-chunks-block (point)))
                   (while (> (point-at-bol) target-beg-line)
                     (move-beginning-of-line nil)
-                    (unless (empty-line-p end-of-chunks-block)
+                    (unless (literate-empty-line-p end-of-chunks-block)
                       (insert tabs-str))
                     (forward-line -1)))
 
@@ -362,11 +362,11 @@
                       (when (and (/= beg-body beg-overlays)
                                  (< (point) (marker-position (cadr markers))))
                         (unless (and something-written-before-body
-                                     (empty-line-p))
+                                     (literate-empty-line-p))
                           (delete-char (cadr rem-spaces)))
                         (forward-line 1))
                       (while (< (point) (marker-position (cadr markers)))
-                        (unless (empty-line-p)
+                        (unless (literate-empty-line-p)
                           (delete-char (cadr rem-spaces)))
                         (forward-line 1)))))))
             (delete-region beg-overlays end-overlays)
