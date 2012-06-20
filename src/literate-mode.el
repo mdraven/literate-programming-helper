@@ -39,10 +39,11 @@
 
 
 (defmacro literate-case-string (expr &rest clauses)
-"(literate-case-string \"one\"
+  "(literate-case-string \"one\"
                       (\"one\" 'one)
                       (\"two\" 'two)
                       (\"three\" 'three))"
+  (declare (indent defun))
   `(let ((var123 ,expr))
      (cond
       ,@(mapcar (lambda (x)
@@ -72,7 +73,7 @@
 
 
 (defun literate-nuweb-parser (beg-pos)
-  (or (code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+  (or (literate-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
       (literate-nuweb-include-chunk-parser beg-pos)
       (literate-nuweb-text-chunk-parser beg-pos)))
 
@@ -82,10 +83,9 @@
       (let (subtype name body-beg body-end tags next-chunk)
         (let ((flag (buffer-substring-no-properties beg-pos (+ beg-pos 2))))
           (setq subtype
-                (literate-case-string
-                 flag
-                 ("@o" 'file-chunk)
-                 ("@d" 'chunk))))
+                (literate-case-string flag
+                  ("@o" 'file-chunk)
+                  ("@d" 'chunk))))
         (let (open tag close)
           (save-excursion
             (goto-char beg-pos)
@@ -99,11 +99,10 @@
                                 (setq quote line-num)
                               (setq quote 0)))
                         (if (/= quote line-num)
-                            (literate-case-string
-                             match
-                             ("@{" (or open (setq open (point))))
-                             ("@|" (or tag (setq tag (point))))
-                             ("@}" (setq close (point)))))
+                            (literate-case-string match
+                              ("@{" (or open (setq open (point))))
+                              ("@|" (or tag (setq tag (point))))
+                              ("@}" (setq close (point)))))
                         (not close))))))
           (or (and open tag close (< open tag) (< tag close)
                    (setq body-end (- tag 2)
@@ -120,7 +119,7 @@
                                                           (- open 2))))))
         (list subtype name body-beg body-end tags next-chunk))))
 
-(defun code-chunk-p (chunk)
+(defun literate-code-chunk-p (chunk)
   (and (car chunk) (cadr chunk) (caddr chunk) (cadddr chunk) chunk))
 
 (defun literate-nuweb-text-chunk-parser (beg-pos)
@@ -549,12 +548,11 @@
         (while (re-search-forward "^\\([[:alpha:]]+\\):[[:blank:]]*\\(.+?\\)[[:blank:]]*$" nil t)
           (let ((var (match-string 1))
                 (val (match-string 2)))
-            (literate-case-string
-             var
-             ("Syntax"  (setq literate-lp-syntax
-                              (literate-filter-correct-syntax val)))
-             ("LPFile" (setq literate-lp-filename val))
-             ("SrcDir" (setq literate-src-dir val)))))))))
+            (literate-case-string var
+              ("Syntax"  (setq literate-lp-syntax
+                               (literate-filter-correct-syntax val)))
+              ("LPFile" (setq literate-lp-filename val))
+              ("SrcDir" (setq literate-src-dir val)))))))))
 
 
 (defun get-target-files (chunks-dependences chunks-files chunk-name)

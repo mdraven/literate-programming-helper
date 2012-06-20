@@ -39,7 +39,7 @@
 и возвращать чанк, который начинается с этой позиции:
 @d Parser @{
 (defun literate-nuweb-parser (beg-pos)
-  (or (code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+  (or (literate-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
       (literate-nuweb-include-chunk-parser beg-pos)
       (literate-nuweb-text-chunk-parser beg-pos)))
 @}
@@ -49,10 +49,11 @@
 Далее нам пригодится макрос:
 @d Helpers @{
 (defmacro literate-case-string (expr &rest clauses)
-"(literate-case-string \"one\"
+  "(literate-case-string \"one\"
                       (\"one\" 'one)
                       (\"two\" 'two)
                       (\"three\" 'three))"
+  (declare (indent defun))
   `(let ((var123 ,expr))
      (cond
       ,@(mapcar (lambda (x)
@@ -93,10 +94,9 @@ FIXME:Данная версия не принимает t
 @d Code parser -- check tags
 @{(let ((flag (buffer-substring-no-properties beg-pos (+ beg-pos 2))))
   (setq subtype
-        (literate-case-string
-         flag
-         ("@o" 'file-chunk)
-         ("@d" 'chunk))))@}
+        (literate-case-string flag
+          ("@o" 'file-chunk)
+          ("@d" 'chunk))))@}
 TODO: на данный момент @} в конце сам не становится(здесь я поставил его сам),
   вместо этого он переносит строку нижнюю -- и это плохо. Надо его научить.
 TODO: быть может стоит не учитывать @{\n? Что-то это портит читаемость кода в LP-тексте. 
@@ -115,11 +115,10 @@ TODO: быть может стоит не учитывать @{\n? Что-то �
                       (setq quote line-num)
                     (setq quote 0)))
               (if (/= quote line-num)
-                  (literate-case-string
-                   match
-                   ("@{" (or open (setq open (point))))
-                   ("@|" (or tag (setq tag (point))))
-                   ("@}" (setq close (point)))))
+                  (literate-case-string match
+                    ("@{" (or open (setq open (point))))
+                    ("@|" (or tag (setq tag (point))))
+                    ("@}" (setq close (point)))))
               (not close))))))@}
 Так как этот режим должен собрать сам себя, то тут используется костыль. Теги
   "@{", "@|", "@}" заключённые в двойные кавычки(причём открывающая и закрывающая кавычка
@@ -153,7 +152,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 Теперь можно определить предикат, который будет определять это чанк с кодом или нет.
 Причем чанк должен быть закрыт тегом:
 @d Parser @{
-(defun code-chunk-p (chunk)
+(defun literate-code-chunk-p (chunk)
   (and (car chunk) (cadr chunk) (caddr chunk) (cadddr chunk) chunk))
 @}
 Если с чанком всё впорядке, то получим сам чанк. Если нет, то nil.
@@ -946,12 +945,11 @@ FIXME: не проверяет, что proj-file -- директория
         (while (re-search-forward "^\\([[:alpha:]]+\\):[[:blank:]]*\\(.+?\\)[[:blank:]]*$" nil t)
           (let ((var (match-string 1))
                 (val (match-string 2)))
-            (literate-case-string
-             var
-             ("Syntax"  (setq literate-lp-syntax
-                              (literate-filter-correct-syntax val)))
-             ("LPFile" (setq literate-lp-filename val))
-             ("SrcDir" (setq literate-src-dir val)))))))))
+            (literate-case-string var
+              ("Syntax"  (setq literate-lp-syntax
+                               (literate-filter-correct-syntax val)))
+              ("LPFile" (setq literate-lp-filename val))
+              ("SrcDir" (setq literate-src-dir val)))))))))
 @}
 
 Интерактивное управление проектом
