@@ -662,13 +662,24 @@
         (setq literate-indicators (list))
         (save-excursion
           (goto-char beg)
-          (set-window-margins nil 1)
+          (set-window-margins nil 1 (cdr (window-margins)))
           (while (< (point) end)
             (let ((ind (make-overlay (point) (point))))
               (push ind literate-indicators)
               (overlay-put ind 'before-string
                            (propertize " " 'display `((margin left-margin) "-"))))
             (forward-line)))))))
+
+(defun literate-set-window-margin (&optional action)
+  (let ((margin (window-margins))
+        (left 0)
+        (right (cdr margin)))
+    (when (car margin)
+      (setq left (car margin)))
+    (case action
+      ('on (incf left))
+      ('off (decf left)))
+    (set-window-margins nil left right)))
 
 (defun literate-get-overlay-for-indication (pos)
   (dolist (i literate-overlays)
