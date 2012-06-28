@@ -1118,26 +1118,22 @@ revert не делает, но принципе можно будет сдела
 Функция заполняющая индикатор для заданного оверлея:
 @d Minor mode for code @{
 (defun literate-fill-indicator (overlay)
-  (unless (equal overlay nil);literate-ind-current)
+  (unless (equal overlay literate-ind-current)
     (setq literate-ind-current overlay)
-    (let ((overlay-beg (overlay-start overlay))
-          (overlay-end (overlay-end overlay))
-          (win-beg (window-start))
-          (win-end (window-end nil t)))
-      (let ((beg (max overlay-beg win-beg))
-            (end (min overlay-end win-end)))
-        (when (< beg end)
-          (mapc #'delete-overlay literate-indicators)
-          (setq literate-indicators (list))
-          (save-excursion
-            (goto-char beg)
-            (set-window-margins nil 1)
-            (while (< (point) end)
-              (let ((ind (make-overlay (point) (point))))
-                (push ind literate-indicators)
-                (overlay-put ind 'before-string
-                             (propertize " " 'display `((margin left-margin) "-"))))
-              (forward-line))))))))
+    (let ((beg (overlay-start overlay))
+          (end (overlay-end overlay)))
+      (when (< beg end)
+        (mapc #'delete-overlay literate-indicators)
+        (setq literate-indicators (list))
+        (save-excursion
+          (goto-char beg)
+          (set-window-margins nil 1)
+          (while (< (point) end)
+            (let ((ind (make-overlay (point) (point))))
+              (push ind literate-indicators)
+              (overlay-put ind 'before-string
+                           (propertize " " 'display `((margin left-margin) "-"))))
+            (forward-line)))))))
 @}
 
 Функция возвращающая наименьший оверлей из literate-overlays в
