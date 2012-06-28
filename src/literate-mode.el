@@ -649,8 +649,9 @@
   nil
   (if literate-code-mode
       (progn
+        (literate-set-window-margin t)
         (message "Hello"))
-    nil))
+    (literate-set-window-margin nil)))
 
 (defun literate-fill-indicator (overlay)
   (unless (equal overlay literate-ind-current)
@@ -662,7 +663,6 @@
         (setq literate-indicators (list))
         (save-excursion
           (goto-char beg)
-          (set-window-margins nil 1 (cdr (window-margins)))
           (while (< (point) end)
             (let ((ind (make-overlay (point) (point))))
               (push ind literate-indicators)
@@ -670,15 +670,15 @@
                            (propertize " " 'display `((margin left-margin) "-"))))
             (forward-line)))))))
 
-(defun literate-set-window-margin (&optional action)
-  (let ((margin (window-margins))
-        (left 0)
-        (right (cdr margin)))
+(defun literate-set-window-margin (activate)
+  (let* ((margin (window-margins))
+         (left 0)
+         (right (cdr margin)))
     (when (car margin)
       (setq left (car margin)))
-    (case action
-      ('on (incf left))
-      ('off (decf left)))
+    (if activate
+        (incf left)
+      (decf left))
     (set-window-margins nil left right)))
 
 (defun literate-get-overlay-for-indication (pos)

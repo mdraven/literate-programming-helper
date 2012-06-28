@@ -1105,8 +1105,9 @@ revert не делает, но принципе можно будет сдела
   nil
   (if literate-code-mode
       (progn
+        (literate-set-window-margin t)
         (message "Hello"))
-    nil))
+    (literate-set-window-margin nil)))
 @}
 
 Создать переменную для оверлеев-индикаторов и указатель на оверлей,
@@ -1127,7 +1128,6 @@ revert не делает, но принципе можно будет сдела
         (setq literate-indicators (list))
         (save-excursion
           (goto-char beg)
-          (set-window-margins nil 1 (cdr (window-margins)))
           (while (< (point) end)
             (let ((ind (make-overlay (point) (point))))
               (push ind literate-indicators)
@@ -1138,19 +1138,20 @@ revert не делает, но принципе можно будет сдела
 FIXME: конфликтует с linum. А после того как они добавили lexical-binding хрен знает
   как исправить :(
 
-
+Функция для создания отступа для индикатора:
 @d Minor mode for code @{
-(defun literate-set-window-margin (&optional action)
-  (let ((margin (window-margins))
-        (left 0)
-        (right (cdr margin)))
+(defun literate-set-window-margin (activate)
+  (let* ((margin (window-margins))
+         (left 0)
+         (right (cdr margin)))
     (when (car margin)
       (setq left (car margin)))
-    (case action
-      ('on (incf left))
-      ('off (decf left)))
+    (if activate
+        (incf left)
+      (decf left))
     (set-window-margins nil left right)))
 @}
+
 
 Функция возвращающая наименьший оверлей из literate-overlays в
 заданной точке:
