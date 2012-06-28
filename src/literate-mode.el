@@ -467,7 +467,7 @@
   (if (null literate-lp-directory)
       (progn (message "The project file has not been saved. You must first create or open project")
              nil)
-    (let ((proj-file (concat literate-lp-directory literate-project-filename)))
+    (let ((proj-file (concat literate-lp-directory "/" literate-project-filename)))
       (if (and (not (file-exists-p proj-file))
                (not create-p))
           (message (concat "The project file " proj-file " doesn't exist"))
@@ -518,7 +518,7 @@
     (completing-read "LP syntax type: " literate-syntax-types nil t (car literate-syntax-types))
     (read-file-name "LP file: ")
     (read-directory-name "Source directory: " nil nil nil "src")))
-  (let ((proj-file (concat dir-path literate-project-filename)))
+  (let ((proj-file (concat dir-path "/" literate-project-filename)))
     (if (file-exists-p proj-file)
         (message (concat "The project file " proj-file " already exists"))
       (setq literate-lp-directory dir-path
@@ -535,7 +535,7 @@
 
 (defun literate-open-lp-project (dir-path)
   (interactive "DLP project directory: ")
-  (let ((proj-file (concat dir-path literate-project-filename)))
+  (let ((proj-file (concat dir-path "/" literate-project-filename)))
     (if (not (file-exists-p proj-file))
         (message (concat "The project file " proj-file " doesn't exist"))
       (setq literate-lp-directory dir-path
