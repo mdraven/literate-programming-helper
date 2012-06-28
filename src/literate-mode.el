@@ -30,6 +30,8 @@
 (defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)
+(defvar literate-indicators nil)
+(defvar literate-ind-current nil)
 
 (require 'cl)
 
@@ -356,17 +358,17 @@
                           (if (> delete-char 0)
                               (delete-char delete-char)
                             (insert (make-string (abs delete-char) ?\s))))
-                        (forward-line 1))
+                        (forward-line))
                       (when (and (/= beg-body beg-overlays)
                                  (< (point) (marker-position (cadr markers))))
                         (unless (and something-written-before-body
                                      (literate-empty-line-p))
                           (delete-char (cadr rem-spaces)))
-                        (forward-line 1))
+                        (forward-line))
                       (while (< (point) (marker-position (cadr markers)))
                         (unless (literate-empty-line-p)
                           (delete-char (cadr rem-spaces)))
-                        (forward-line 1)))))))
+                        (forward-line)))))))
             (delete-region beg-overlays end-overlays)
             (goto-char beg-overlays)
             (insert (concat (make-string (caddr rem-spaces) ?\s)
@@ -437,7 +439,7 @@
         (when (<= (point) end-pos)
           (setq first-num-spaces (- beg-code (point-at-bol)))
           (setq other-num-spaces first-num-spaces))
-        (forward-line 1)
+        (forward-line)
 
         (while (< (point) end-pos)
           (let ((beg-line (point)))
@@ -447,7 +449,7 @@
               (let ((diff (- (point) beg-line)))
                 (when (< diff other-num-spaces)
                   (setq other-num-spaces diff)))))
-          (forward-line 1))
+          (forward-line))
 
         (if (and first-num-spaces other-num-spaces)
             (progn
@@ -638,6 +640,38 @@
         (set-buffer-modified-p nil)
         (kill-buffer))
       (setq literate-overlays nil))))
+
+
+(define-minor-mode literate-code-mode
+  "Minor mode for generated code from a LP-text"
+  nil
+  nil
+  nil
+  (if literate-code-mode
+      (progn
+        (message "Hello"))
+    nil))
+
+(defun literate-fill-indicator (overlay)
+  (unless (equal overlay literate-ind-current)
+    (setq literate-ind-current overlay)
+    (let ((overlay-beg (overlay-start overlay))
+          (overlay-end (overlay-end overlay))
+          (win-beg (window-start))
+          (win-end (window-end nil t)))
+      (let ((beg (max overlay-beg win-beg))
+            (end (min overlay-end win-end)))
+        (when (< beg end)
+          (mapc #'delete-overlay literate-indicators)
+          (setq literate-indicators (list))
+          (save-excursion
+            (goto-char beg)
+            (while (<= (point) end)
+              (let ((ind (make-overlay (point) (point))))
+                (push ind literate-indicators)
+                (overlay-put ind 'before-string
+                             (propertize " " 'display `((margin left-margin) " "))))
+              (forward-line))))))))
 
 
 

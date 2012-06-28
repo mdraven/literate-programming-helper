@@ -14,6 +14,7 @@
 @<BackConverter@>
 @<Project@>
 @<Interactive@>
+@<Minor mode for code@>
 
 @<Provide@>
 @}
@@ -641,7 +642,7 @@ TODO: надо сделать хук для преобразования из п
     (if (> delete-char 0)
         (delete-char delete-char)
       (insert (make-string (abs delete-char) ?\s))))
-  (forward-line 1))@}
+  (forward-line))@}
 
 Так как весь блок чанков с одним именем центрируется по первой строке первого чанка, то,
 казалось бы, первые строки остальных чанков можно не учитывать и обрабатывать как остальные.
@@ -654,7 +655,7 @@ literate-get-spaces-before-overlay они не учитывались:
   (unless (and something-written-before-body
                (literate-empty-line-p))
     (delete-char (cadr rem-spaces)))
-  (forward-line 1))@}
+  (forward-line))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.
 
 Удаляем пробелы перед остальными строками в чанках:
@@ -662,7 +663,7 @@ literate-get-spaces-before-overlay они не учитывались:
 @{(while (< (point) (marker-position (cadr markers)))
   (unless (literate-empty-line-p)
     (delete-char (cadr rem-spaces)))
-  (forward-line 1))@}
+  (forward-line))@}
 Пустые строки учитываются, перед ними пробелы не ставятся.
 
 Функция которая возвращает блок оверлеев имеющих одно имя, и которые,
@@ -772,7 +773,7 @@ overlays:
 @{(when (<= (point) end-pos)
   (setq first-num-spaces (- beg-code (point-at-bol)))
   (setq other-num-spaces first-num-spaces))
-(forward-line 1)@}
+(forward-line)@}
 Не стоит забывать, что перед первой строкой могут быть не только пробелы.
 
 
@@ -786,7 +787,7 @@ overlays:
       (let ((diff (- (point) beg-line)))
         (when (< diff other-num-spaces)
           (setq other-num-spaces diff)))))
-  (forward-line 1))@}
+  (forward-line))@}
 Здесь также учитываются пустые строки.
 
 Если first-num-spaces и other-num-spaces определены, то посчитаем смещения:
@@ -1090,8 +1091,50 @@ revert не делает, но принципе можно будет сдела
   то значит или буфер удалён, или удалён сам оверлей и обрабатывать уже нечего.
 
 
-TODO: Для fridge https://github.com/m2ym/yascroll-el
+Минорный режим для окна редактирования кода
+================================
 
+@d Minor mode for code @{
+(define-minor-mode literate-code-mode
+  "Minor mode for generated code from a LP-text"
+  nil
+  nil
+  nil
+  (if literate-code-mode
+      (progn
+        (message "Hello"))
+    nil))
+@}
+
+Создать переменную для оверлеев-индикаторов и указатель на оверлей,
+который отображается индикатором в данный момент:
+@d Variables @{
+(defvar literate-indicators nil)
+(defvar literate-ind-current nil)@}
+
+Функция заполняющая индикатор для заданного оверлея:
+@d Minor mode for code @{
+(defun literate-fill-indicator (overlay)
+  (unless (equal overlay literate-ind-current)
+    (setq literate-ind-current overlay)
+    (let ((overlay-beg (overlay-start overlay))
+          (overlay-end (overlay-end overlay))
+          (win-beg (window-start))
+          (win-end (window-end nil t)))
+      (let ((beg (max overlay-beg win-beg))
+            (end (min overlay-end win-end)))
+        (when (< beg end)
+          (mapc #'delete-overlay literate-indicators)
+          (setq literate-indicators (list))
+          (save-excursion
+            (goto-char beg)
+            (while (<= (point) end)
+              (let ((ind (make-overlay (point) (point))))
+                (push ind literate-indicators)
+                (overlay-put ind 'before-string
+                             (propertize " " 'display `((margin left-margin) " "))))
+              (forward-line))))))))
+@}
 
 @d Provide @{
 (provide 'literate-mode)@}
