@@ -1106,8 +1106,15 @@ revert не делает, но принципе можно будет сдела
   (if literate-code-mode
       (progn
         (literate-set-window-margin t)
-        (message "Hello"))
-    (literate-set-window-margin nil)))
+        (add-hook 'post-command-hook 'literate-code-ind-current-overlay nil t)
+        (add-hook 'after-change-functions 'literate-code-ind-current-overlay nil t))
+    (remove-hook 'post-command-hook 'literate-code-ind-current-overlay t)
+    (remove-hook 'after-change-functions 'literate-code-ind-current-overlay t)
+    ;; Remove chunk's indicators
+    (literate-set-window-margin nil)
+    (mapc #'delete-overlay literate-indicators)
+    (setq literate-indicators nil
+          literate-ind-current nil)))
 @}
 
 Создать переменную для оверлеев-индикаторов и указатель на оверлей,
@@ -1162,6 +1169,12 @@ FIXME: конфликтует с linum. А после того как они д�
                                 pos
                                 (overlay-end i))
       (return i))))
+@}
+
+@d Minor mode for code @{
+(defun literate-code-ind-current-overlay ()
+  (literate-fill-indicator
+   (literate-get-overlay-for-indication (point))))
 @}
 
 @d Provide @{

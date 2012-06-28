@@ -650,8 +650,15 @@
   (if literate-code-mode
       (progn
         (literate-set-window-margin t)
-        (message "Hello"))
-    (literate-set-window-margin nil)))
+        (add-hook 'post-command-hook 'literate-code-ind-current-overlay nil t)
+        (add-hook 'after-change-functions 'literate-code-ind-current-overlay nil t))
+    (remove-hook 'post-command-hook 'literate-code-ind-current-overlay t)
+    (remove-hook 'after-change-functions 'literate-code-ind-current-overlay t)
+    ;; Remove chunk's indicators
+    (literate-set-window-margin nil)
+    (mapc #'delete-overlay literate-indicators)
+    (setq literate-indicators nil
+          literate-ind-current nil)))
 
 (defun literate-fill-indicator (overlay)
   (unless (equal overlay literate-ind-current)
@@ -687,6 +694,10 @@
                                 pos
                                 (overlay-end i))
       (return i))))
+
+(defun literate-code-ind-current-overlay ()
+  (literate-fill-indicator
+   (literate-get-overlay-for-indication (point))))
 
 
 
