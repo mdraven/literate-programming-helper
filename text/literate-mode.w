@@ -48,9 +48,9 @@
 @d Helpers @{
 (defmacro literate-case-string (expr &rest clauses)
   "(literate-case-string \"one\"
-                      (\"one\" 'one)
-                      (\"two\" 'two)
-                      (\"three\" 'three))"
+  (\"one\" 'one)
+  (\"two\" 'two)
+  (\"three\" 'three))"
   (declare (indent defun))
   `(let ((var123 ,expr))
      (cond
