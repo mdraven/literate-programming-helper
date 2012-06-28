@@ -653,7 +653,7 @@
     nil))
 
 (defun literate-fill-indicator (overlay)
-  (unless (equal overlay literate-ind-current)
+  (unless (equal overlay nil);literate-ind-current)
     (setq literate-ind-current overlay)
     (let ((overlay-beg (overlay-start overlay))
           (overlay-end (overlay-end overlay))
@@ -666,12 +666,20 @@
           (setq literate-indicators (list))
           (save-excursion
             (goto-char beg)
-            (while (<= (point) end)
+            (set-window-margins nil 1)
+            (while (< (point) end)
               (let ((ind (make-overlay (point) (point))))
                 (push ind literate-indicators)
                 (overlay-put ind 'before-string
-                             (propertize " " 'display `((margin left-margin) " "))))
+                             (propertize " " 'display `((margin left-margin) "-"))))
               (forward-line))))))))
+
+(defun literate-get-overlay-for-indication (pos)
+  (dolist (i literate-overlays)
+    (when (literate-num-between (overlay-start i)
+                                pos
+                                (overlay-end i))
+      (return i))))
 
 
 

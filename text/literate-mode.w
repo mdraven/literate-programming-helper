@@ -1034,6 +1034,8 @@ pos -- это тело чанка без заголовка.
     chunk-name))
 @}
 chunks -- первая хеш-таблица возвращаемая parse-file.
+FIXME: избавится от chunk-name, если maphash возвращает nil, то key можно вернуть с
+  помощью throw
 
 Функция которая генерирует исходный код и переходит к чанку в этом исходном коде:
 @d Interactive @{
@@ -1066,7 +1068,8 @@ chunks -- первая хеш-таблица возвращаемая parse-file
   который будет генерироваться.
 FIXME: при каждом вызове парсит файлы, нужно сделать кеширование.
 FIXME: "/" -- платформозависимо, неужели нет функции для генерации путей к файлам?
-
+FIXME: можно вызвать из окна с кодом, тогда literate-overlays станет nil и мы не
+  сможем вернуться(можно исправить горячими клавишами)
 
 Функция возвращения из сгенерированного кода:
 @d Interactive @{
@@ -1115,7 +1118,7 @@ revert не делает, но принципе можно будет сдела
 Функция заполняющая индикатор для заданного оверлея:
 @d Minor mode for code @{
 (defun literate-fill-indicator (overlay)
-  (unless (equal overlay literate-ind-current)
+  (unless (equal overlay nil);literate-ind-current)
     (setq literate-ind-current overlay)
     (let ((overlay-beg (overlay-start overlay))
           (overlay-end (overlay-end overlay))
@@ -1128,12 +1131,24 @@ revert не делает, но принципе можно будет сдела
           (setq literate-indicators (list))
           (save-excursion
             (goto-char beg)
-            (while (<= (point) end)
+            (set-window-margins nil 1)
+            (while (< (point) end)
               (let ((ind (make-overlay (point) (point))))
                 (push ind literate-indicators)
                 (overlay-put ind 'before-string
-                             (propertize " " 'display `((margin left-margin) " "))))
+                             (propertize " " 'display `((margin left-margin) "-"))))
               (forward-line))))))))
+@}
+
+Функция возвращающая наименьший оверлей из literate-overlays в
+заданной точке:
+@d Minor mode for code @{
+(defun literate-get-overlay-for-indication (pos)
+  (dolist (i literate-overlays)
+    (when (literate-num-between (overlay-start i)
+                                pos
+                                (overlay-end i))
+      (return i))))
 @}
 
 @d Provide @{
