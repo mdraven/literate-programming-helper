@@ -30,7 +30,7 @@
 (defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)
-(defvar literate-indicators nil)
+(defvar literate-indicators (list))
 (defvar literate-ind-current nil)
 
 (require 'cl)
@@ -656,9 +656,12 @@
     (remove-hook 'after-change-functions 'literate-code-ind-current-overlay t)
     ;; Remove chunk's indicators
     (literate-set-window-margin nil)
-    (mapc #'delete-overlay literate-indicators)
-    (setq literate-indicators nil
-          literate-ind-current nil)))
+    (literate-remove-indicators)
+    (setq literate-ind-current nil)))
+
+(defun literate-remove-indicators ()
+  (mapc #'delete-overlay literate-indicators)
+  (setq literate-indicators (list)))
 
 (defun literate-fill-indicator (overlay)
   (unless (equal overlay literate-ind-current)
@@ -666,8 +669,7 @@
     (let ((beg (overlay-start overlay))
           (end (overlay-end overlay)))
       (when (< beg end)
-        (mapc #'delete-overlay literate-indicators)
-        (setq literate-indicators (list))
+        (literate-remove-indicators)
         (save-excursion
           (goto-char beg)
           (while (< (point) end)

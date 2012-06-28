@@ -1112,16 +1112,22 @@ revert не делает, но принципе можно будет сдела
     (remove-hook 'after-change-functions 'literate-code-ind-current-overlay t)
     ;; Remove chunk's indicators
     (literate-set-window-margin nil)
-    (mapc #'delete-overlay literate-indicators)
-    (setq literate-indicators nil
-          literate-ind-current nil)))
+    (literate-remove-indicators)
+    (setq literate-ind-current nil)))
 @}
 
 Создать переменную для оверлеев-индикаторов и указатель на оверлей,
 который отображается индикатором в данный момент:
 @d Variables @{
-(defvar literate-indicators nil)
+(defvar literate-indicators (list))
 (defvar literate-ind-current nil)@}
+
+Функция удаления списка оверлеев-индикаторов:
+@d Minor mode for code @{
+(defun literate-remove-indicators ()
+  (mapc #'delete-overlay literate-indicators)
+  (setq literate-indicators (list)))
+@}
 
 Функция заполняющая индикатор для заданного оверлея:
 @d Minor mode for code @{
@@ -1131,8 +1137,7 @@ revert не делает, но принципе можно будет сдела
     (let ((beg (overlay-start overlay))
           (end (overlay-end overlay)))
       (when (< beg end)
-        (mapc #'delete-overlay literate-indicators)
-        (setq literate-indicators (list))
+        (literate-remove-indicators)
         (save-excursion
           (goto-char beg)
           (while (< (point) end)
