@@ -1013,7 +1013,7 @@ chunks-dependences -- дерево вложености целей, а chunks-fi
 pos -- это тело чанка без заголовка.
 Функция использует переменную literate-overlays.
 
-Функция возвращающая имя чанка на тело которого находится в позиции pos:
+Функция возвращающая имя чанка на теле которого находится в позиции pos:
 @d Interactive @{
 (defun literate-get-chunk-name (chunks pos)
   (let (chunk-name)
