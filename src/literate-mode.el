@@ -697,7 +697,7 @@
                                 (overlay-end i))
       (return i))))
 
-(defun literate-code-ind-current-overlay ()
+(defun literate-code-ind-current-overlay (&optional beg end len)
   (literate-fill-indicator
    (literate-get-overlay-for-indication (point))))
 
