@@ -1107,9 +1107,9 @@ revert не делает, но принципе можно будет сдела
       (progn
         (literate-set-window-margin t)
         (add-hook 'post-command-hook 'literate-code-ind-current-overlay nil t)
-        (add-hook 'after-change-functions 'literate-code-ind-current-overlay nil t))
+        (add-hook 'after-change-functions 'literate-code-ind-after-change nil t))
     (remove-hook 'post-command-hook 'literate-code-ind-current-overlay t)
-    (remove-hook 'after-change-functions 'literate-code-ind-current-overlay t)
+    (remove-hook 'after-change-functions 'literate-code-ind-after-change t)
     ;; Remove chunk's indicators
     (literate-set-window-margin nil)
     (literate-remove-indicators)
@@ -1181,6 +1181,10 @@ FIXME: конфликтует с linum. А после того как они д�
 (defun literate-code-ind-current-overlay (&optional beg end len)
   (literate-fill-indicator
    (literate-get-overlay-for-indication (point))))
+
+(defun literate-code-ind-after-change (&optional beg end len)
+  (setq literate-ind-current nil)
+  (literate-code-ind-current-overlay beg end len))
 @}
 
 @d Provide @{
