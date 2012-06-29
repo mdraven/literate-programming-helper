@@ -698,13 +698,13 @@
                                 (overlay-end i))
       (return i))))
 
-(defun literate-code-ind-current-overlay (&optional beg end len)
+(defun literate-code-ind-current-overlay ()
   (literate-fill-indicator
    (literate-get-overlay-for-indication (point))))
 
 (defun literate-code-ind-after-change (&optional beg end len)
   (setq literate-ind-current nil)
-  (literate-code-ind-current-overlay beg end len))
+  (literate-code-ind-current-overlay))
 
 
 
