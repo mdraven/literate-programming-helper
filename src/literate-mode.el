@@ -664,7 +664,8 @@
   (setq literate-indicators (list)))
 
 (defun literate-fill-indicator (overlay)
-  (unless (equal overlay literate-ind-current)
+  (when (and overlay
+             (not (equal overlay literate-ind-current)))
     (setq literate-ind-current overlay)
     (let ((beg (overlay-start overlay))
           (end (overlay-end overlay)))
