@@ -1061,7 +1061,8 @@ FIXME: избавится от chunk-name, если maphash возвращает
               (write-file (concat literate-lp-directory "/"
                                   literate-src-dir "/"
                                   file))))))))
-  (literate-go-to-body-position (point)))
+  (literate-go-to-body-position (point))
+  (literate-code-mode t))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
 У функции есть аргумент arg, если он равен 4(C-u), то у нас запрашивается имя файла,

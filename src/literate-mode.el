@@ -625,7 +625,8 @@
               (write-file (concat literate-lp-directory "/"
                                   literate-src-dir "/"
                                   file))))))))
-  (literate-go-to-body-position (point)))
+  (literate-go-to-body-position (point))
+  (literate-code-mode t))
 
 (defun literate-go-back ()
   (interactive)
@@ -646,7 +647,7 @@
   "Minor mode for generated code from a LP-text"
   nil
   nil
-  '(("\C-c" . literate-go-back)) ;; just comment
+  '(("\C-c" . literate-go-back))
   (if literate-code-mode
       (progn
         (literate-set-window-margin t)
