@@ -646,7 +646,7 @@
   "Minor mode for generated code from a LP-text"
   nil
   nil
-  nil
+  '(("\C-c" . literate-go-back)) ;; just comment
   (if literate-code-mode
       (progn
         (literate-set-window-margin t)

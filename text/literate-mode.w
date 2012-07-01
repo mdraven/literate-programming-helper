@@ -1102,7 +1102,7 @@ revert не делает, но принципе можно будет сдела
   "Minor mode for generated code from a LP-text"
   nil
   nil
-  nil
+  '(("\C-c" . literate-go-back))
   (if literate-code-mode
       (progn
         (literate-set-window-margin t)
