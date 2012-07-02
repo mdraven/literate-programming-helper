@@ -24,10 +24,14 @@
   "Project filename for literate-mode"
   :type '(string))
 
+(defvar literate-lp-syntax nil)
+(defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
+                                                literate-nuweb-get-target))
+                                    ("noweb" . (literate-noweb-parser
+                                                literate-noweb-get-target))))
 (defvar literate-overlays nil)
 (defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
-(defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)
 (defvar literate-indicators (list))
@@ -150,6 +154,31 @@
     ('include (cadddr chunk))
     ('text (caddr chunk))))
 
+(defun literate-nuweb-get-target (pos)
+  (let (target-pos target-name)
+	(save-excursion
+	  (goto-char pos)
+	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
+		(setq target-pos (match-beginning 0))
+		(setq target-name (match-string 1))))
+	(list target-pos target-name)))
+
+(defun literate-parser (beg-pos)
+  (if (not literate-lp-syntax)
+      (message "Unknown syntax. You must create or open project")
+    (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
+      (if functions
+          (funcall (cadr functions) beg-pos)
+        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+
+(defun literate-get-target (pos)
+  (if (not literate-lp-syntax)
+      (message "Unknown syntax. You must create or open project")
+    (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
+      (if functions
+          (funcall (caddr functions) pos)
+        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+
 (defun literate-parse-file (filename)
   (let ((chunks-by-name (make-hash-table :test #'equal))
         (chunks-dependences (make-hash-table :test #'equal))
@@ -158,7 +187,7 @@
                           (let ((targets (list))
                                 (pos body-beg))
                             (while
-                                (let ((target (literate-nuweb-get-target pos)))
+                                (let ((target (literate-get-target pos)))
                                   (setq pos (car target))
                                   (when (and pos
                                              (< pos body-end))
@@ -181,7 +210,7 @@
                        (insert-file-contents-literally filename)
                        (let ((next-chunk-pos 1) chunk)
                          (while (progn
-                                  (setq chunk (literate-nuweb-parser next-chunk-pos)
+                                  (setq chunk (literate-parser next-chunk-pos)
                                         next-chunk-pos (literate-next-chunk-begin chunk))
                                   (case (car chunk)
                                     ('chunk (conc-to-hash (cadr chunk)
@@ -199,15 +228,6 @@
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
 
-(defun literate-nuweb-get-target (pos)
-  (let (target-pos target-name)
-	(save-excursion
-	  (goto-char pos)
-	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
-		(setq target-pos (match-beginning 0))
-		(setq target-name (match-string 1))))
-	(list target-pos target-name)))
-
 
 (defun literate-expand-file (filename chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
@@ -218,7 +238,7 @@
 (defun literate-expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
     (let (target target-beg-line target-pos target-name)
-      (while (setq target (literate-nuweb-get-target (point))
+      (while (setq target (literate-get-target (point))
                    target-pos (car target)
                    target-name (cadr target))
 

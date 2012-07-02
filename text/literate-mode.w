@@ -34,6 +34,15 @@
 Парсер
 ======
 
+@d Variables @{
+(defvar literate-lp-syntax nil)
+(defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
+                                                literate-nuweb-get-target))
+                                    ("noweb" . (literate-noweb-parser
+                                                literate-noweb-get-target))))@}
+literate-lp-syntax -- синтаксис текущего проекта. Если nil, то синтаксис не выбран
+literate-syntax-functions -- переменная в которой записаны функции интерфейса синтаксиса
+
 Для начала определим функцию, которая будет принимать позицию в буфере
 и возвращать чанк, который начинается с этой позиции:
 @d Parser @{
@@ -209,6 +218,40 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
     ('text (caddr chunk))))
 @}
 
+Ищет и возвращает позицию и имя цели:
+@d Parser @{
+(defun literate-nuweb-get-target (pos)
+  (let (target-pos target-name)
+	(save-excursion
+	  (goto-char pos)
+	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
+		(setq target-pos (match-beginning 0))
+		(setq target-name (match-string 1))))
+	(list target-pos target-name)))
+@}
+TODO: заменить поиск цели в других местах на вызов этой функции
+
+Интерфейс для всех функций парсера(literate-nuweb-parser) и
+поиска цели(вроде функции literate-nuweb-get-target)
+у разных синтаксисов LP:
+@d Parser @{
+(defun literate-parser (beg-pos)
+  (if (not literate-lp-syntax)
+      (message "Unknown syntax. You must create or open project")
+    (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
+      (if functions
+          (funcall (cadr functions) beg-pos)
+        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+
+(defun literate-get-target (pos)
+  (if (not literate-lp-syntax)
+      (message "Unknown syntax. You must create or open project")
+    (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
+      (if functions
+          (funcall (caddr functions) pos)
+        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+@}
+для "nuweb" assoc вернёт ("nuweb" literate-nuweb-parser literate-nuweb-get-target)
 
 Теперь можно написать функцию для парсинга файлов, которая использует
 выше приведённые парсеры. Она будет возвращаеть хеш-таблицу с именами чанков
@@ -238,7 +281,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
              (let ((targets (list))
                    (pos body-beg))
                (while
-                   (let ((target (literate-nuweb-get-target pos)))
+                   (let ((target (literate-get-target pos)))
                      (setq pos (car target))
                      (when (and pos
                                 (< pos body-end))
@@ -246,18 +289,6 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
                        (add-to-list 'targets (cadr target)))))
                targets))@}
 
-Ищет и возвращает позицию и имя цели:
-@d Parser @{
-(defun literate-nuweb-get-target (pos)
-  (let (target-pos target-name)
-	(save-excursion
-	  (goto-char pos)
-	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
-		(setq target-pos (match-beginning 0))
-		(setq target-name (match-string 1))))
-	(list target-pos target-name)))
-@}
-TODO: заменить поиск цели в других местах на вызов этой функции
 
 Парсеру придётся заполнять хеш-таблицу. Он делает это с помощью функции conc-to-hash:
 @d Parse file -- concatenate to hash
@@ -282,7 +313,7 @@ TODO: заменить поиск цели в других местах на в�
           (insert-file-contents-literally filename)
           (let ((next-chunk-pos 1) chunk)
             (while (progn
-                     (setq chunk (literate-nuweb-parser next-chunk-pos)
+                     (setq chunk (literate-parser next-chunk-pos)
                            next-chunk-pos (literate-next-chunk-begin chunk))
                      (case (car chunk)
                        ('chunk (conc-to-hash (cadr chunk)
@@ -348,7 +379,7 @@ end -- необязательный параметр; иногда конец с
 (defun literate-expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
     (let (target target-beg-line target-pos target-name)
-      (while (setq target (literate-nuweb-get-target (point))
+      (while (setq target (literate-get-target (point))
                    target-pos (car target)
                    target-name (cadr target))
 
@@ -826,13 +857,11 @@ literate-project-filename -- имя для проектных файлов по-
 @d Variables @{
 (defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
-(defvar literate-lp-syntax nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)@}
 literate-syntax-types -- допустимые типы синтаксиса LP-текста.
 literate-lp-directory -- путь до директории проекта. Остальные пути должны быть относительно
   этой директории. Если nil, то файл проекта не открыт.
-literate-lp-syntax -- синтаксис текущего проекта. Если nil, то синтаксис не выбран.
 literate-lp-filename -- файл с LP-текстом. Если нужно несколько независимых LP-текстов, то
   делать разные проекты. Если они зависимы, то создать файл, который includ'ит эти LP-файлы.
   Относительный путь от literate-lp-directory.
