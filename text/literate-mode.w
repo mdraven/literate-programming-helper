@@ -185,6 +185,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
   str)
 @}
 
+Структура для чанка с текстом:
 @d Parser @{
 (defstruct literate-text-chunk
   body-beg body-end)
@@ -203,10 +204,12 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 @}
 Просто ищет следующий "^@[odi]", если не находит, то берёт конец буфера.
 
+Структура для чанков подключающих LP-файлы:
 @d Parser @{
 (defstruct literate-include-chunk
   name body-beg next-chunk)
 @}
+name -- имя файла
 
 Парсер чанков, которые подключают LP-файлы:
 @d Parser @{
