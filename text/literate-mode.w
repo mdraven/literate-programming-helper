@@ -62,19 +62,17 @@ literate-syntax-functions -- переменная в которой записа
   (\"two\" 'two)
   (\"three\" 'three))"
   (declare (indent defun))
-  `(let ((var123 ,expr))
-     (cond
-      ,@(mapcar (lambda (x)
-                  (list (list 'string= 'var123 (car x))
-                        (cadr x)))
-                clauses))))
+  (let ((var (gensym)))
+    `(let ((,var ,expr))
+       (cond
+        ,@(mapcar (lambda (x)
+                    (list (list 'string= var (car x))
+                          (cadr x)))
+                  clauses)))))
 @}
 может такой есть в elisp, но я его не нашёл. Работает очень просто:
   expr -- выражение которое возвращает строку;
   clauses -- пары (<строка> <выражение>).
-Так как gensym, что-то не видать, а в имитаторе cl используют какие-то
-  костыли, я остановлюсь на простом варианте: не использовать переменную var123
-  внутри clauses.
 FIXME:Данная версия не принимает t
 
 Напишем парсер для кода:

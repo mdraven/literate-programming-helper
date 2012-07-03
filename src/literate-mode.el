@@ -45,12 +45,13 @@
   (\"two\" 'two)
   (\"three\" 'three))"
   (declare (indent defun))
-  `(let ((var123 ,expr))
-     (cond
-      ,@(mapcar (lambda (x)
-                  (list (list 'string= 'var123 (car x))
-                        (cadr x)))
-                clauses))))
+  (let ((var (gensym)))
+    `(let ((,var ,expr))
+       (cond
+        ,@(mapcar (lambda (x)
+                    (list (list 'string= var (car x))
+                          (cadr x)))
+                  clauses)))))
 
 (defun literate-agressive-chomp (str)
   "Chomp leading and tailing whitespace from STR."
