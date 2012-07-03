@@ -83,7 +83,7 @@ FIXME:Данная версия не принимает t
       (let (subtype name body-beg body-end tags next-chunk)
         @<Code parser -- check tags@>
         (let (open tag close)
-          @<Code parser -- find open,info-tag & close tags@>
+          @<Code parser -- find open, info-tag & close tags@>
           @<Code parser -- fill body-end, tags & next-chunk@>
           @<Code parser -- fill name@>)
         (list subtype name body-beg body-end tags next-chunk))))
@@ -108,7 +108,7 @@ TODO: на данный момент @} в конце сам не станови
 TODO: быть может стоит не учитывать @{\n? Что-то это портит читаемость кода в LP-тексте. 
 
 Найдем открывающий, закрывающий и тег отмечающий ссылки:
-@d Code parser -- find open,info-tag & close tags
+@d Code parser -- find open, info-tag & close tags
 @{(save-excursion
   (goto-char beg-pos)
   (let ((quote 0))
