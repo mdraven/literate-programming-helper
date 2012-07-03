@@ -75,9 +75,12 @@
 
 
 (defun literate-nuweb-parser (beg-pos)
-  (or (literate-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+  (or (literate-closed-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
       (literate-nuweb-include-chunk-parser beg-pos)
       (literate-nuweb-text-chunk-parser beg-pos)))
+
+(defstruct literate-code-chunk
+  subtype name body-beg body-end tags next-chunk)
 
 (defun literate-nuweb-code-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
@@ -119,10 +122,17 @@
                     name (literate-agressive-chomp
                           (buffer-substring-no-properties (+ beg-pos 2)
                                                           (- open 2))))))
-        (list subtype name body-beg body-end tags next-chunk))))
+        (make-literate-code-chunk :subtype subtype :name name
+                                  :body-beg body-beg :body-end body-end
+                                  :tags tags :next-chunk next-chunk))))
 
-(defun literate-code-chunk-p (chunk)
-  (and (car chunk) (cadr chunk) (caddr chunk) (cadddr chunk) chunk))
+(defun literate-closed-code-chunk-p (chunk)
+  (and (literate-code-chunk-p chunk)
+       (literate-code-chunk-subtype chunk)
+       (literate-code-chunk-name chunk)
+       (literate-code-chunk-body-beg chunk)
+       (literate-code-chunk-body-end chunk)
+       chunk))
 
 (defun literate-nuweb-text-chunk-parser (beg-pos)
   (let (body-end)
@@ -148,11 +158,14 @@
             (list 'include name beg-pos next-chunk)))))
 
 (defun literate-next-chunk-begin (chunk)
-  (case (car chunk)
-    ('chunk (cadddr (cddr chunk)))
-    ('file-chunk (cadddr (cddr chunk)))
-    ('include (cadddr chunk))
-    ('text (caddr chunk))))
+  (cond
+   ((literate-code-chunk-p chunk) (let ((subtype (literate-code-chunk-subtype chunk)))
+                                    (when (or (eq subtype 'chunk)
+                                              (eq subtype 'file-chunk))
+                                      (literate-code-chunk-next-chunk chunk))))
+   (t (case (car chunk)
+        ('include (cadddr chunk))
+        ('text (caddr chunk))))))
 
 (defun literate-nuweb-get-target (pos)
   (let (target-pos target-name)
@@ -212,18 +225,21 @@
                          (while (progn
                                   (setq chunk (literate-parser next-chunk-pos)
                                         next-chunk-pos (literate-next-chunk-begin chunk))
-                                  (case (car chunk)
-                                    ('chunk (conc-to-hash (cadr chunk)
-                                                          (caddr chunk)
-                                                          (cadddr chunk)
-                                                          filename))
-                                    ('file-chunk (conc-to-hash (cadr chunk)
-                                                               (caddr chunk)
-                                                               (cadddr chunk)
-                                                               filename)
-                                                 (add-to-list 'chunks-files (cadr chunk)))
-                                    ('include (helper (cadr chunk)))
-                                    ('text ()))
+                                  (cond
+                                   ((literate-code-chunk-p chunk)
+                                    (let ((subtype (literate-code-chunk-subtype chunk)))
+                                      (when (or (eq subtype 'chunk)
+                                                (eq subtype 'file-chunk))
+                                        (conc-to-hash (literate-code-chunk-name chunk)
+                                                      (literate-code-chunk-body-beg chunk)
+                                                      (literate-code-chunk-body-end chunk)
+                                                      filename)
+                                        (when (eq subtype 'file-chunk)
+                                          (add-to-list 'chunks-files
+                                                       (literate-code-chunk-name chunk))))))
+                                  (t (case (car chunk)
+                                       ('include (helper (cadr chunk)))
+                                       ('text ()))))
                                   (< next-chunk-pos (point-max))))))))
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))

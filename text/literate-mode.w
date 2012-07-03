@@ -47,7 +47,7 @@ literate-syntax-functions -- переменная в которой записа
 и возвращать чанк, который начинается с этой позиции:
 @d Parser @{
 (defun literate-nuweb-parser (beg-pos)
-  (or (literate-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
+  (or (literate-closed-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))
       (literate-nuweb-include-chunk-parser beg-pos)
       (literate-nuweb-text-chunk-parser beg-pos)))
 @}
@@ -75,6 +75,14 @@ literate-syntax-functions -- переменная в которой записа
   clauses -- пары (<строка> <выражение>).
 FIXME:Данная версия не принимает t
 
+Данные чанка с кодом:
+@d Parser @{
+(defstruct literate-code-chunk
+  subtype name body-beg body-end tags next-chunk)
+@}
+подтип чанка, имя чанка, начало кода, конец кода, ссылки(в виде
+  строк), позиция начала следующего чанка
+
 Напишем парсер для кода:
 @d Parser @{
 (defun literate-nuweb-code-chunk-parser (beg-pos)
@@ -86,14 +94,14 @@ FIXME:Данная версия не принимает t
           @<Code parser -- find open, info-tag & close tags@>
           @<Code parser -- fill body-end, tags & next-chunk@>
           @<Code parser -- fill name@>)
-        (list subtype name body-beg body-end tags next-chunk))))
+        (make-literate-code-chunk :subtype subtype :name name
+                                  :body-beg body-beg :body-end body-end
+                                  :tags tags :next-chunk next-chunk))))
 @}
 Вначале сделаем проверку на наличие в буфере 2-х символов, без этих символов в
   буфере заведомо не помещается тег @[od] и следовательно нет кодового чанка.
 Далее проверяем тег @[do], находим открывающий, закрывающий и тег отмечающий
   ссылки. После этого запоняем поля.
-Возвращается подтип чанка, имя чанка, начало кода, конец кода, ссылки(в виде
-  строк), позиция начала следующего чанка.
 
 Проверка тега. По нему можно определить тип чанка с кодом и, если тег не тот, то
 это точно не чанк с кодом:
@@ -158,8 +166,13 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 Теперь можно определить предикат, который будет определять это чанк с кодом или нет.
 Причем чанк должен быть закрыт тегом:
 @d Parser @{
-(defun literate-code-chunk-p (chunk)
-  (and (car chunk) (cadr chunk) (caddr chunk) (cadddr chunk) chunk))
+(defun literate-closed-code-chunk-p (chunk)
+  (and (literate-code-chunk-p chunk)
+       (literate-code-chunk-subtype chunk)
+       (literate-code-chunk-name chunk)
+       (literate-code-chunk-body-beg chunk)
+       (literate-code-chunk-body-end chunk)
+       chunk))
 @}
 Если с чанком всё впорядке, то получим сам чанк. Если нет, то nil.
 
@@ -209,11 +222,14 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 которая вычленит это поле и вернёт содержимое:
 @d Parser @{
 (defun literate-next-chunk-begin (chunk)
-  (case (car chunk)
-    ('chunk (cadddr (cddr chunk)))
-    ('file-chunk (cadddr (cddr chunk)))
-    ('include (cadddr chunk))
-    ('text (caddr chunk))))
+  (cond
+   ((literate-code-chunk-p chunk) (let ((subtype (literate-code-chunk-subtype chunk)))
+                                    (when (or (eq subtype 'chunk)
+                                              (eq subtype 'file-chunk))
+                                      (literate-code-chunk-next-chunk chunk))))
+   (t (case (car chunk)
+        ('include (cadddr chunk))
+        ('text (caddr chunk))))))
 @}
 
 Ищет и возвращает позицию и имя цели:
@@ -313,18 +329,21 @@ TODO: заменить поиск цели в других местах на в�
             (while (progn
                      (setq chunk (literate-parser next-chunk-pos)
                            next-chunk-pos (literate-next-chunk-begin chunk))
-                     (case (car chunk)
-                       ('chunk (conc-to-hash (cadr chunk)
-                                             (caddr chunk)
-                                             (cadddr chunk)
-                                             filename))
-                       ('file-chunk (conc-to-hash (cadr chunk)
-                                                  (caddr chunk)
-                                                  (cadddr chunk)
-                                                  filename)
-                                    (add-to-list 'chunks-files (cadr chunk)))
-                       ('include (helper (cadr chunk)))
-                       ('text ()))
+                     (cond
+                      ((literate-code-chunk-p chunk)
+                       (let ((subtype (literate-code-chunk-subtype chunk)))
+                         (when (or (eq subtype 'chunk)
+                                   (eq subtype 'file-chunk))
+                           (conc-to-hash (literate-code-chunk-name chunk)
+                                         (literate-code-chunk-body-beg chunk)
+                                         (literate-code-chunk-body-end chunk)
+                                         filename)
+                           (when (eq subtype 'file-chunk)
+                             (add-to-list 'chunks-files
+                                          (literate-code-chunk-name chunk))))))
+                     (t (case (car chunk)
+                          ('include (helper (cadr chunk)))
+                          ('text ()))))
                      (< next-chunk-pos (point-max)))))))@}
 Пишет содержимое файла filename во временный буфер и, пробегая по буферу
   чанк за чанком, заполняет хеш-таблицу.
