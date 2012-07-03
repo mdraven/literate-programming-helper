@@ -203,6 +203,11 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 @}
 Просто ищет следующий "^@[odi]", если не находит, то берёт конец буфера.
 
+@d Parser @{
+(defstruct literate-include-chunk
+  name body-beg next-chunk)
+@}
+
 Парсер чанков, которые подключают LP-файлы:
 @d Parser @{
 (defun literate-nuweb-include-chunk-parser (beg-pos)
@@ -217,7 +222,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
                   (setq next-chunk (1+ (match-end 1))
                         name (literate-agressive-chomp
                               (match-string-no-properties 1)))))
-            (list 'include name beg-pos next-chunk)))))
+            (make-literate-include-chunk :name :body-beg beg-pos :next-chunk next-chunk)))))
 @}
 Поверяет тег @i, получает имя файла. Возвращает имя файла, своё начало(похоже что оно
   не используется,TODO:проверить), начало следующего чанка.
@@ -233,8 +238,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
                                               (eq subtype 'file-chunk))
                                       (literate-code-chunk-next-chunk chunk))))
    ((literate-text-chunk-p chunk) (literate-text-chunk-body-end chunk))
-   (t (case (car chunk)
-        ('include (cadddr chunk))))))
+   ((literate-include-chunk-p chunk) (literate-include-chunk-next-chunk chunk))))
 @}
 
 Ищет и возвращает позицию и имя цели:
@@ -347,8 +351,8 @@ TODO: заменить поиск цели в других местах на в�
                              (add-to-list 'chunks-files
                                           (literate-code-chunk-name chunk))))))
                       ((literate-text-chunk-p chunk) ())
-                      (t (case (car chunk)
-                           ('include (helper (cadr chunk))))))
+                      ((literate-include-chunk-p chunk)
+                       (helper (literate-include-chunk-name chunk))))
                      (< next-chunk-pos (point-max)))))))@}
 Пишет содержимое файла filename во временный буфер и, пробегая по буферу
   чанк за чанком, заполняет хеш-таблицу.
