@@ -185,6 +185,11 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
   str)
 @}
 
+@d Parser @{
+(defstruct literate-text-chunk
+  body-beg body-end)
+@}
+
 Парсер чанков с текстом:
 @d Parser @{
 (defun literate-nuweb-text-chunk-parser (beg-pos)
@@ -194,7 +199,7 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
                                   (re-search-forward "^@[odi]" nil t))))
                          (and a (- a 2)))
                        (point-max)))
-    (list 'text beg-pos body-end)))
+    (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
 @}
 Просто ищет следующий "^@[odi]", если не находит, то берёт конец буфера.
 
@@ -227,9 +232,9 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
                                     (when (or (eq subtype 'chunk)
                                               (eq subtype 'file-chunk))
                                       (literate-code-chunk-next-chunk chunk))))
+   ((literate-text-chunk-p chunk) (literate-text-chunk-body-end chunk))
    (t (case (car chunk)
-        ('include (cadddr chunk))
-        ('text (caddr chunk))))))
+        ('include (cadddr chunk))))))
 @}
 
 Ищет и возвращает позицию и имя цели:
@@ -341,9 +346,9 @@ TODO: заменить поиск цели в других местах на в�
                            (when (eq subtype 'file-chunk)
                              (add-to-list 'chunks-files
                                           (literate-code-chunk-name chunk))))))
-                     (t (case (car chunk)
-                          ('include (helper (cadr chunk)))
-                          ('text ()))))
+                      ((literate-text-chunk-p chunk) ())
+                      (t (case (car chunk)
+                           ('include (helper (cadr chunk))))))
                      (< next-chunk-pos (point-max)))))))@}
 Пишет содержимое файла filename во временный буфер и, пробегая по буферу
   чанк за чанком, заполняет хеш-таблицу.

@@ -134,6 +134,9 @@
        (literate-code-chunk-body-end chunk)
        chunk))
 
+(defstruct literate-text-chunk
+  body-beg body-end)
+
 (defun literate-nuweb-text-chunk-parser (beg-pos)
   (let (body-end)
     (setq body-end (or (let ((a (save-excursion
@@ -141,7 +144,7 @@
                                   (re-search-forward "^@[odi]" nil t))))
                          (and a (- a 2)))
                        (point-max)))
-    (list 'text beg-pos body-end)))
+    (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
 
 (defun literate-nuweb-include-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
@@ -163,9 +166,9 @@
                                     (when (or (eq subtype 'chunk)
                                               (eq subtype 'file-chunk))
                                       (literate-code-chunk-next-chunk chunk))))
+   ((literate-text-chunk-p chunk) (literate-text-chunk-body-end chunk))
    (t (case (car chunk)
-        ('include (cadddr chunk))
-        ('text (caddr chunk))))))
+        ('include (cadddr chunk))))))
 
 (defun literate-nuweb-get-target (pos)
   (let (target-pos target-name)
@@ -237,9 +240,9 @@
                                         (when (eq subtype 'file-chunk)
                                           (add-to-list 'chunks-files
                                                        (literate-code-chunk-name chunk))))))
-                                  (t (case (car chunk)
-                                       ('include (helper (cadr chunk)))
-                                       ('text ()))))
+                                   ((literate-text-chunk-p chunk) ())
+                                   (t (case (car chunk)
+                                        ('include (helper (cadr chunk))))))
                                   (< next-chunk-pos (point-max))))))))
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
