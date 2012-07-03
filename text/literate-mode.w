@@ -855,11 +855,9 @@ literate-project-filename -- имя для проектных файлов по-
 
 Переменные проекта:
 @d Variables @{
-(defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)@}
-literate-syntax-types -- допустимые типы синтаксиса LP-текста.
 literate-lp-directory -- путь до директории проекта. Остальные пути должны быть относительно
   этой директории. Если nil, то файл проекта не открыт.
 literate-lp-filename -- файл с LP-текстом. Если нужно несколько независимых LP-текстов, то
@@ -940,7 +938,8 @@ FIXME: не проверяет, что proj-file -- директория
   (interactive
    (list
     (read-directory-name "LP project directory: ")
-    (completing-read "LP syntax type: " literate-syntax-types nil t (car literate-syntax-types))
+    (let ((syntax-types (mapcar #'car literate-syntax-functions)))
+      (completing-read "LP syntax type: " syntax-types nil t (car syntax-types)))
     (read-file-name "LP file: ")
     (read-directory-name "Source directory: " nil nil nil "src")))
   (let ((proj-file (concat dir-path "/" literate-project-filename)))
@@ -961,8 +960,9 @@ FIXME: не проверяет, что proj-file -- директория
 возвращает её, если он корректный, иначе возвращает nil:
 @d Project @{
 (defun literate-filter-correct-syntax (syntax)
-  (when (member syntax literate-syntax-types)
-    syntax))
+  (let ((syntax-types (mapcar #'car literate-syntax-functions)))
+    (when (member syntax syntax-types)
+      syntax)))
 @}
 
 Функция загрузки файла проекта:

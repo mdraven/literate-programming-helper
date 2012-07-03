@@ -30,7 +30,6 @@
                                     ("noweb" . (literate-noweb-parser
                                                 literate-noweb-get-target))))
 (defvar literate-overlays nil)
-(defvar literate-syntax-types '("nuweb" "noweb"))
 (defvar literate-lp-directory nil)
 (defvar literate-lp-filename nil)
 (defvar literate-src-dir nil)
@@ -537,7 +536,8 @@
   (interactive
    (list
     (read-directory-name "LP project directory: ")
-    (completing-read "LP syntax type: " literate-syntax-types nil t (car literate-syntax-types))
+    (let ((syntax-types (mapcar #'car literate-syntax-functions)))
+      (completing-read "LP syntax type: " syntax-types nil t (car syntax-types)))
     (read-file-name "LP file: ")
     (read-directory-name "Source directory: " nil nil nil "src")))
   (let ((proj-file (concat dir-path "/" literate-project-filename)))
@@ -552,8 +552,9 @@
            (literate-set-src-dir src-dir)))))
 
 (defun literate-filter-correct-syntax (syntax)
-  (when (member syntax literate-syntax-types)
-    syntax))
+  (let ((syntax-types (mapcar #'car literate-syntax-functions)))
+    (when (member syntax syntax-types)
+      syntax)))
 
 (defun literate-open-lp-project (dir-path)
   (interactive "DLP project directory: ")
