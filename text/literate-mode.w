@@ -263,21 +263,30 @@ TODO: заменить поиск цели в других местах на в�
 поиска цели(вроде функции literate-nuweb-get-target)
 у разных синтаксисов LP:
 @d Parser @{
-(defun literate-parser (beg-pos)
+(defun literate-get-cur-syntax-functions ()
   (if (not literate-lp-syntax)
-      (message "Unknown syntax. You must create or open project")
+      (progn (message "Unknown syntax. You must create or open project")
+             nil)
     (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
       (if functions
-          (funcall (cadr functions) beg-pos)
-        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+          (cdr functions)
+        (message (concat "Incorrect syntax: " literate-lp-syntax))
+        nil))))
+
+(defun literate-parser (beg-pos)
+  (let ((functions (literate-get-cur-syntax-functions)))
+    (when functions
+      (funcall (car functions) beg-pos))))
 
 (defun literate-get-target (pos)
-  (if (not literate-lp-syntax)
-      (message "Unknown syntax. You must create or open project")
-    (let ((functions (assoc literate-lp-syntax literate-syntax-functions)))
-      (if functions
-          (funcall (caddr functions) pos)
-        (message (concat "Incorrect syntax: " literate-lp-syntax))))))
+  (let ((functions (literate-get-cur-syntax-functions)))
+    (when functions
+      (funcall (cadr functions) pos))))
+
+(defun literate-generate-target (name)
+  (let ((functions (literate-get-cur-syntax-functions)))
+    (when functions
+      (funcall (caddr functions) name))))
 @}
 для "nuweb" assoc вернёт ("nuweb" literate-nuweb-parser literate-nuweb-get-target)
 
