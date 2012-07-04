@@ -390,6 +390,35 @@ TODO: А так как я ленивый и noweb не импользую, то 
   <<*>> обрабатываться не будет, хоть это и Ъ-вариант. Используем
   не Ъ-вариант с отгадыванием regexp'ом.
 
+@d Parser @{
+(defun literate-noweb-parser (beg-pos)
+  (or (literate-noweb-code-chunk-parser beg-pos)
+      (literate-noweb-text-chunk-parser beg-pos)))
+@}
+
+@d Parser @{
+(defun literate-noweb-code-chunk-parser (beg-pos)
+  (if (< (+ 5 beg-pos)
+         (point-max))
+      (let (subtype name body-beg body-end next-chunk)
+        (save-excursion
+          (goto-char beg-pos)
+          (when (and (re-search-forward "^<<\\(.+?\\)>>=.*$" nil t)
+                     (= (match-beginning 0) beg-pos))
+            (setq body-beg (1+ (match-end 0))
+                  name (match-string 1))
+            (setq subtype (if (string-match "^.+\\..+$" name) 'file-chunk
+                            'chunk))
+            (if (re-search-forward "^@" nil t)
+                (setq next-chunk (match-end 0)
+                      body-end (1- next-chunk))
+              (setq next-chunk (point-max)
+                    body-end next-chunk))
+            (make-literate-code-chunk :subtype subtype :name name
+                                      :body-beg body-beg :body-end body-end
+                                      :tags nil :next-chunk next-chunk))))))
+@}
+
 Создание буфера с исходным кодом
 ================================
 
