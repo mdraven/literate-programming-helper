@@ -265,9 +265,9 @@
                   name (match-string 1))
             (setq subtype (if (string-match "^.+\\..+$" name) 'file-chunk
                             'chunk))
-            (if (re-search-forward "^@" nil t)
-                (setq next-chunk (match-end 0)
-                      body-end (1- next-chunk))
+            (if (re-search-forward "^@.*$" nil t)
+                (setq next-chunk (1+ (match-end 0))
+                      body-end (- next-chunk 2))
               (setq next-chunk (point-max)
                     body-end next-chunk))
             (make-literate-code-chunk :subtype subtype :name name
