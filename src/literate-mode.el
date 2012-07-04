@@ -274,6 +274,15 @@
                                       :body-beg body-beg :body-end body-end
                                       :tags nil :next-chunk next-chunk))))))
 
+(defun literate-noweb-text-chunk-parser (beg-pos)
+  (let (body-end)
+    (setq body-end (or (save-excursion
+                         (goto-char (+ beg-pos 1))
+                         (when (re-search-forward "^<<.+?>>=\\|^@" nil t)
+                           (match-beginning 0)))
+                       (point-max)))
+    (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
+
 
 (defun literate-expand-file (filename chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
