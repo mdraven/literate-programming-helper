@@ -26,9 +26,11 @@
 
 (defvar literate-lp-syntax nil)
 (defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
-                                                literate-nuweb-get-target))
+                                                literate-nuweb-get-target
+                                                literate-nuweb-generate-target))
                                     ("noweb" . (literate-noweb-parser
-                                                literate-noweb-get-target))))
+                                                literate-noweb-get-target
+                                                literate-noweb-generate-target))))
 (defvar literate-overlays nil)
 (defvar literate-lp-directory nil)
 (defvar literate-lp-filename nil)
@@ -181,6 +183,9 @@
 		(setq target-name (match-string 1))))
 	(list target-pos target-name)))
 
+(defun literate-nuweb-generate-target (name)
+  (concat "@<" name "@>"))
+
 (defun literate-get-cur-syntax-functions ()
   (if (not literate-lp-syntax)
       (progn (message "Unknown syntax. You must create or open project")
@@ -300,6 +305,9 @@
 		(setq target-pos (match-beginning 0))
 		(setq target-name (match-string 1))))
 	(list target-pos target-name)))
+
+(defun literate-noweb-generate-target (name)
+  (concat "<<" name ">>"))
 
 
 (defun literate-expand-file (filename chunks)

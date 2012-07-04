@@ -37,9 +37,11 @@
 @d Variables @{
 (defvar literate-lp-syntax nil)
 (defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
-                                                literate-nuweb-get-target))
+                                                literate-nuweb-get-target
+                                                literate-nuweb-generate-target))
                                     ("noweb" . (literate-noweb-parser
-                                                literate-noweb-get-target))))@}
+                                                literate-noweb-get-target
+                                                literate-noweb-generate-target))))@}
 literate-lp-syntax -- синтаксис текущего проекта. Если nil, то синтаксис не выбран
 literate-syntax-functions -- переменная в которой записаны функции интерфейса синтаксиса
 
@@ -259,8 +261,15 @@ name -- имя файла
 @}
 TODO: заменить поиск цели в других местах на вызов этой функции
 
-Интерфейс для всех функций парсера(literate-nuweb-parser) и
-поиска цели(вроде функции literate-nuweb-get-target)
+Генерирует имя цели:
+@d Parser @{
+(defun literate-nuweb-generate-target (name)
+  (concat "@<" name "@>"))
+@}
+
+Интерфейс для всех функций парсера(literate-nuweb-parser),
+поиска цели(вроде функции literate-nuweb-get-target) и
+генерации стороки цели(literate-nuweb-generate-target)
 у разных синтаксисов LP:
 @d Parser @{
 (defun literate-get-cur-syntax-functions ()
@@ -454,7 +463,10 @@ TODO: А так как я ленивый и noweb не импользую, то 
 точно такая же как у nuweb -- не учитывает цели взятые в кавычки, но nuweb должен собирать
   этот файл, а у noweb можно забить
 
-
+@d Parser @{
+(defun literate-noweb-generate-target (name)
+  (concat "<<" name ">>"))
+@}
 
 Создание буфера с исходным кодом
 ================================
