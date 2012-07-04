@@ -283,6 +283,15 @@
                        (point-max)))
     (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
 
+(defun literate-noweb-get-target (pos)
+  (let (target-pos target-name)
+	(save-excursion
+	  (goto-char pos)
+	  (when (re-search-forward "<<\\(.+?\\)>>" nil t)
+		(setq target-pos (match-beginning 0))
+		(setq target-name (match-string 1))))
+	(list target-pos target-name)))
+
 
 (defun literate-expand-file (filename chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))

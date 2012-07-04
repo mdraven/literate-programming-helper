@@ -430,6 +430,21 @@ TODO: А так как я ленивый и noweb не импользую, то 
     (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
 @}
 
+@d Parser @{
+(defun literate-noweb-get-target (pos)
+  (let (target-pos target-name)
+	(save-excursion
+	  (goto-char pos)
+	  (when (re-search-forward "<<\\(.+?\\)>>" nil t)
+		(setq target-pos (match-beginning 0))
+		(setq target-name (match-string 1))))
+	(list target-pos target-name)))
+@}
+точно такая же как у nuweb -- не учитывает цели взятые в кавычки, но nuweb должен собирать
+  этот файл, а у noweb можно забить
+
+
+
 Создание буфера с исходным кодом
 ================================
 
