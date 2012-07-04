@@ -759,7 +759,7 @@ write-region используется потому, как остальные ф
         (delete-region beg-overlays end-overlays)
         (goto-char beg-overlays)
         (insert (concat (make-string (caddr rem-spaces) ?\s)
-                        "@<" chunkname "@>"))))))@}
+                        (literate-generate-target chunkname)))))))@}
 Соседи-оверлеи обрабатываются в цикле. После чего их блоки удаляются и заменяются целью с
 именем, которое объединяла эти оверлеи.
 

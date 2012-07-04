@@ -473,7 +473,7 @@
             (delete-region beg-overlays end-overlays)
             (goto-char beg-overlays)
             (insert (concat (make-string (caddr rem-spaces) ?\s)
-                            "@<" chunkname "@>"))))))
+                            (literate-generate-target chunkname)))))))
     ;; Save & kill buffers
     (save-current-buffer
       (dolist (i files)
