@@ -1,0 +1,17 @@
+
+Hello world
+
+<<hello.c>>=
+<<Headers>>
+<<Main>>
+@
+
+<<Headers>>=
+#include <stdio.h>
+@
+
+<<Main>>=
+int main(void) {
+    printf("Hello, world!\n");
+    return 0;
+}
