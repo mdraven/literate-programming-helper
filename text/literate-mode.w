@@ -254,9 +254,20 @@ name -- имя файла
   (let (target-pos target-name)
 	(save-excursion
 	  (goto-char pos)
-	  (when (re-search-forward "@<\\(.+?\\)@>" nil t)
-		(setq target-pos (match-beginning 0))
-		(setq target-name (match-string 1))))
+      (let ((quote 0))
+        (while (and (re-search-forward "@[<>]\\|\"" nil t)
+                    (let ((match (match-string 0))
+                          (line-num (point-at-eol)))
+                      (if (string= match "\"")
+                          (if (/= quote line-num)
+                              (setq quote line-num)
+                            (setq quote 0)))
+                      (if (/= quote line-num)
+                          (literate-case-string match
+                            ("@<" (or target-pos (setq target-pos (- (point) 2))))
+                            ("@>" (setq target-name (buffer-substring-no-properties (+ target-pos 2)
+                                                                                    (- (point) 2))))))
+                      (not target-name))))))
 	(list target-pos target-name)))
 @}
 TODO: заменить поиск цели в других местах на вызов этой функции
