@@ -1271,6 +1271,7 @@ revert не делает, но принципе можно будет сдела
   тот самый который не удаляется после buffer-to-LP. Если он не прикреплён к буферу,
   то значит или буфер удалён, или удалён сам оверлей и обрабатывать уже нечего.
 
+Обновить все файлы исходного кода, в которых произошли изменения:
 @d Interactive @{
 (defun literate-generate-all-files ()
   (interactive)
@@ -1291,7 +1292,9 @@ revert не делает, но принципе можно будет сдела
                 (write-file filename)))
             (kill-buffer)))))))
 @}
+в emacs 23.3.1 literate-eq-buffer-and-file намного ускоряет генерацию
 
+Сравнивает текущий буфер и файл filename:
 @d Helpers @{
 (defun literate-eq-buffer-and-file (filename)
   (when (file-exists-p filename)
@@ -1300,6 +1303,7 @@ revert не делает, но принципе можно будет сдела
         (insert-file-literally filename)
         (string= buf-text (buffer-substring-no-properties (point-min) (point-max)))))))
 @}
+если файла нет, то возвращает nil. t -- только если буфер и файл равны.
 
 Минорный режим для окна редактирования кода
 ================================
