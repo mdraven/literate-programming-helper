@@ -271,7 +271,7 @@ name -- имя файла
                       (not target-name))))))
 	(list target-pos target-name)))
 @}
-
+пропускает цели в кавычках.
 
 Генерирует имя цели:
 @d Parser @{
