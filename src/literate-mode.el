@@ -777,9 +777,11 @@
         (dolist (file files)
           (literate-expand-file file chunks)
           (with-current-buffer (concat literate-buffer-prefix file)
-            (write-file (concat literate-lp-directory "/"
-                                literate-src-dir "/"
-                                file))
+            (let ((filename (concat literate-lp-directory "/"
+                                    literate-src-dir "/"
+                                    file)))
+              (unless (literate-eq-buffer-and-file filename)
+                (write-file filename)))
             (kill-buffer)))))))
 
 
