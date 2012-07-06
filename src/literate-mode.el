@@ -75,6 +75,13 @@
   (and (<= a b)
        (<= b c)))
 
+(defun literate-eq-buffer-and-file (filename)
+  (when (file-exists-p filename)
+    (let ((buf-text (buffer-substring-no-properties (point-min) (point-max))))
+      (with-temp-buffer
+        (insert-file-literally filename)
+        (string= buf-text (buffer-substring-no-properties (point-min) (point-max)))))))
+
 
 (defun literate-nuweb-parser (beg-pos)
   (or (literate-closed-code-chunk-p (literate-nuweb-code-chunk-parser beg-pos))

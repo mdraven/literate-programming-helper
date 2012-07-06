@@ -1290,6 +1290,14 @@ revert не делает, но принципе можно будет сдела
             (kill-buffer)))))))
 @}
 
+@d Helpers @{
+(defun literate-eq-buffer-and-file (filename)
+  (when (file-exists-p filename)
+    (let ((buf-text (buffer-substring-no-properties (point-min) (point-max))))
+      (with-temp-buffer
+        (insert-file-literally filename)
+        (string= buf-text (buffer-substring-no-properties (point-min) (point-max)))))))
+@}
 
 Минорный режим для окна редактирования кода
 ================================
