@@ -1271,6 +1271,25 @@ revert не делает, но принципе можно будет сдела
   тот самый который не удаляется после buffer-to-LP. Если он не прикреплён к буферу,
   то значит или буфер удалён, или удалён сам оверлей и обрабатывать уже нечего.
 
+@d Interactive @{
+(defun literate-generate-all-files ()
+  (interactive)
+  (setq literate-overlays (list))
+  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+                                            literate-lp-filename))))
+    (let ((chunks (car parse))
+          (files (caddr parse)))
+      (when (and literate-lp-directory
+                 literate-src-dir)
+        (dolist (file files)
+          (literate-expand-file file chunks)
+          (with-current-buffer (concat literate-buffer-prefix file)
+            (write-file (concat literate-lp-directory "/"
+                                literate-src-dir "/"
+                                file))
+            (kill-buffer)))))))
+@}
+
 
 Минорный режим для окна редактирования кода
 ================================

@@ -758,6 +758,23 @@
         (kill-buffer))
       (setq literate-overlays nil))))
 
+(defun literate-generate-all-files ()
+  (interactive)
+  (setq literate-overlays (list))
+  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+                                            literate-lp-filename))))
+    (let ((chunks (car parse))
+          (files (caddr parse)))
+      (when (and literate-lp-directory
+                 literate-src-dir)
+        (dolist (file files)
+          (literate-expand-file file chunks)
+          (with-current-buffer (concat literate-buffer-prefix file)
+            (write-file (concat literate-lp-directory "/"
+                                literate-src-dir "/"
+                                file))
+            (kill-buffer)))))))
+
 
 (define-minor-mode literate-code-mode
   "Minor mode for generated code from a LP-text"
