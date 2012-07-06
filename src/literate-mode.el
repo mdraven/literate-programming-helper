@@ -189,8 +189,9 @@
                       (if (/= quote line-num)
                           (literate-case-string match
                             ("@<" (or target-pos (setq target-pos (- (point) 2))))
-                            ("@>" (setq target-name (buffer-substring-no-properties (+ target-pos 2)
-                                                                                    (- (point) 2))))))
+                            ("@>" (and target-pos
+                                       (setq target-name (buffer-substring-no-properties (+ target-pos 2)
+                                                                                         (- (point) 2)))))))
                       (not target-name))))))
 	(list target-pos target-name)))
 
@@ -336,7 +337,8 @@
 
         (if (or remove-unfound-chunks
                 (gethash target-name chunks))
-            (replace-match ""))
+            (delete-region target-pos (+ target-pos
+                                         (length (literate-generate-target target-name)))))
 
         (goto-char target-pos)
         (setq target-beg-line (point-at-bol))
