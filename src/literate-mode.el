@@ -634,6 +634,7 @@
       (setq literate-src-dir (file-relative-name dir-path literate-lp-directory))
       (literate-save-lp-config))))
 
+;;;###autoload
 (defun literate-create-lp-project (dir-path syntax lp-file src-dir)
   (interactive
    (list
@@ -658,6 +659,7 @@
     (when (member syntax syntax-types)
       syntax)))
 
+;;;###autoload
 (defun literate-open-lp-project (dir-path)
   (interactive "DLP project directory: ")
   (let ((proj-file (concat dir-path "/" literate-project-filename)))

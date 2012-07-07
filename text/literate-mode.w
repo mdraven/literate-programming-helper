@@ -1082,6 +1082,7 @@ FIXME: не проверяет, что proj-file -- директория
 
 Функция создания нового проекта:
 @d Project @{
+;;;###autoload
 (defun literate-create-lp-project (dir-path syntax lp-file src-dir)
   (interactive
    (list
@@ -1115,6 +1116,7 @@ FIXME: не проверяет, что proj-file -- директория
 
 Функция загрузки файла проекта:
 @d Project @{
+;;;###autoload
 (defun literate-open-lp-project (dir-path)
   (interactive "DLP project directory: ")
   (let ((proj-file (concat dir-path "/" literate-project-filename)))
