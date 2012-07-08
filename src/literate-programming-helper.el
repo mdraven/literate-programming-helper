@@ -1,5 +1,5 @@
 
-;; literate-mode - support literate programming for emacs
+;; literate-programming-helper - support literate programming for emacs
 ;; Copyright (C) 2012 Iljasov Ramil
 ;;
 ;; This program is free software: you can redistribute it and/or modify
@@ -18,10 +18,10 @@
 
 
 (defcustom literate-buffer-prefix "literate-"
-  "Prefix string for literate-mode"
+  "Prefix string for literate-programming-helper"
   :type '(string))
 (defcustom literate-project-filename "lp-project"
-  "Project filename for literate-mode"
+  "Project filename for literate-programming-helper"
   :type '(string))
 
 (defvar literate-lp-syntax nil)
@@ -853,4 +853,4 @@
 
 
 
-(provide 'literate-mode)
+(provide 'literate-programming-helper)

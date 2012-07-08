@@ -1,6 +1,6 @@
 
 
-@o literate-mode.el @{
+@o literate-programming-helper.el @{
 @<License@>
 
 @<Customs@>
@@ -23,7 +23,7 @@
 проблем, к ним будет приписываться префикс:
 @d Customs @{
 (defcustom literate-buffer-prefix "literate-"
-  "Prefix string for literate-mode"
+  "Prefix string for literate-programming-helper"
   :type '(string))@}
 
 
@@ -997,7 +997,7 @@ overlays:
 Настройка:
 @d Customs @{
 (defcustom literate-project-filename "lp-project"
-  "Project filename for literate-mode"
+  "Project filename for literate-programming-helper"
   :type '(string))@}
 literate-project-filename -- имя для проектных файлов по-умолчанию
 
@@ -1404,10 +1404,10 @@ FIXME: маркеры отваливаются после любого пере�
 @}
 
 @d Provide @{
-(provide 'literate-mode)@}
+(provide 'literate-programming-helper)@}
 
 @d License
-@{;; literate-mode - support literate programming for emacs
+@{;; literate-programming-helper - support literate programming for emacs
 ;; Copyright (C) 2012 Iljasov Ramil
 ;;
 ;; This program is free software: you can redistribute it and/or modify
