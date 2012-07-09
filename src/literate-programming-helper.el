@@ -329,11 +329,11 @@
   (concat "<<" name ">>"))
 
 
-(defun literate-expand-file (filename chunks)
+(defun literate-expand-file (filename chunks &optional remove-unfound-chunks)
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
     (literate-insert-parts-of-chunks chunks filename)
     (beginning-of-buffer)
-    (literate-expand-targets chunks)))
+    (literate-expand-targets chunks remove-unfound-chunks)))
 
 (defun literate-expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
@@ -766,8 +766,8 @@
         (kill-buffer))
       (setq literate-overlays nil))))
 
-(defun literate-generate-all-files ()
-  (interactive)
+(defun literate-generate-all-files (&optional arg)
+  (interactive "p")
   (setq literate-overlays (list))
   (let ((parse (literate-parse-file (concat literate-lp-directory "/"
                                             literate-lp-filename))))
@@ -776,7 +776,7 @@
       (when (and literate-lp-directory
                  literate-src-dir)
         (dolist (file files)
-          (literate-expand-file file chunks)
+          (literate-expand-file file chunks (eql arg 4))
           (with-current-buffer (concat literate-buffer-prefix file)
             (let ((filename (concat literate-lp-directory "/"
                                     literate-src-dir "/"
