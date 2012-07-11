@@ -737,7 +737,7 @@
           (dependences (cadr parse))
           (files (caddr parse)))
       (let ((files (literate-get-target-files dependences files
-                                              (literate-get-chunk-name chunks (point))))
+                                              (literate-get-chunk-name chunks pos)))
             file)
         (setq file (if (eql arg 4)
                        (completing-read "File: " files nil t (car files))
@@ -750,7 +750,7 @@
               (write-file (concat literate-lp-directory "/"
                                   literate-src-dir "/"
                                   file))))))))
-  (literate-go-to-body-position (point))
+  (literate-go-to-body-position pos)
   (literate-code-mode t))
 
 (defun literate-go-back ()

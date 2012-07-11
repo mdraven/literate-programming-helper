@@ -87,7 +87,7 @@ FIXME: избавится от chunk-name, если maphash возвращает
           (dependences (cadr parse))
           (files (caddr parse)))
       (let ((files (literate-get-target-files dependences files
-                                              (literate-get-chunk-name chunks (point))))
+                                              (literate-get-chunk-name chunks pos)))
             file)
         (setq file (if (eql arg 4)
                        (completing-read "File: " files nil t (car files))
@@ -100,7 +100,7 @@ FIXME: избавится от chunk-name, если maphash возвращает
               (write-file (concat literate-lp-directory "/"
                                   literate-src-dir "/"
                                   file))))))))
-  (literate-go-to-body-position (point))
+  (literate-go-to-body-position pos)
   (literate-code-mode t))
 @}
 после создания буфера с кодом прикрепляет к нему файл.
