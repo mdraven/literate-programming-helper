@@ -690,8 +690,8 @@
                          (add-to-list 'files chunk-name)
                        (dolist (i (gethash chunk-name chunks-dependences))
                          (unless (member i visited-chunks)
-                           (helper i)
-                           (add-to-list 'visited-chunks i))))))
+                           (add-to-list 'visited-chunks i)
+                           (helper i))))))
       (helper chunk-name))
     files))
 
