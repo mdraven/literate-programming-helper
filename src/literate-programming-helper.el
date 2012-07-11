@@ -156,7 +156,7 @@
     (make-literate-text-chunk :body-beg beg-pos :body-end body-end)))
 
 (defstruct literate-include-chunk
-  name body-beg next-chunk)
+  path body-beg next-chunk)
 
 (defun literate-nuweb-include-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
@@ -170,7 +170,8 @@
                   (setq next-chunk (1+ (match-end 1))
                         name (literate-agressive-chomp
                               (match-string-no-properties 1)))))
-            (make-literate-include-chunk :name name :body-beg beg-pos :next-chunk next-chunk)))))
+            (make-literate-include-chunk :path (expand-file-name name)
+                                         :body-beg beg-pos :next-chunk next-chunk)))))
 
 (defun literate-next-chunk-begin (chunk)
   (cond
@@ -277,7 +278,7 @@
                                                        (literate-code-chunk-name chunk))))))
                                    ((literate-text-chunk-p chunk) ())
                                    ((literate-include-chunk-p chunk)
-                                    (helper (literate-include-chunk-name chunk))))
+                                    (helper (literate-include-chunk-path chunk))))
                                   (< next-chunk-pos (point-max))))))))
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
