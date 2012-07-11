@@ -26,7 +26,6 @@
   "Prefix string for literate-programming-helper"
   :type '(string))@}
 
-
 Используются функции из CL:
 @d Requires
 @{(require 'cl)@}

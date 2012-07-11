@@ -25,6 +25,8 @@
   :type '(string))
 
 (defvar literate-lp-syntax nil)
+(defvar literate-chunks-cache (make-hash-table :test #'equal))
+(defvar literate-files-hash (make-hash-table :test #'equal))
 (defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
                                                 literate-nuweb-get-target
                                                 literate-nuweb-generate-target))
@@ -89,7 +91,14 @@
       (literate-nuweb-text-chunk-parser beg-pos)))
 
 (defstruct literate-code-chunk
-  subtype name body-beg body-end tags next-chunk)
+  subtype name body-beg body-end targets tags next-chunk)
+
+(defun literate-check-hash-of-file (filename)
+  (let ((modif-time (nth 6 (file-attributes filename))))
+    (if (equal (gethash (expand-file-name filename) literate-files-hash)
+               modif-time)
+        nil
+      (puthash (expand-file-name filename) modif-time literate-files-hash))))
 
 (defun literate-nuweb-code-chunk-parser (beg-pos)
   (if (< (+ 2 beg-pos)
@@ -131,9 +140,24 @@
                     name (literate-agressive-chomp
                           (buffer-substring-no-properties (+ beg-pos 2)
                                                           (- open 2))))))
-        (make-literate-code-chunk :subtype subtype :name name
-                                  :body-beg body-beg :body-end body-end
-                                  :tags tags :next-chunk next-chunk))))
+        (labels ((get-targets (body-beg body-end)
+                              (and body-beg
+                                   body-end
+                                   (let ((targets (list))
+                                         (pos body-beg))
+                                     (while
+                                         (let ((target (literate-get-target pos)))
+                                           (setq pos (car target))
+                                           (when (and pos
+                                                      (< pos body-end))
+                                             (incf pos)
+                                             (add-to-list 'targets (cadr target)))))
+                                     targets))))
+          (make-literate-code-chunk :subtype subtype :name name
+                                    :body-beg body-beg :body-end body-end
+                                    :targets (get-targets body-beg body-end)
+                                    :tags tags
+                                    :next-chunk next-chunk)))))
 
 (defun literate-closed-code-chunk-p (chunk)
   (and (literate-code-chunk-p chunk)
@@ -232,54 +256,65 @@
       (funcall (caddr functions) name))))
 
 (defun literate-parse-file (filename)
+  (let ((chunks-cache (make-hash-table :test #'equal)))
+    (labels ((helper (filename)
+                     (if (literate-check-hash-of-file filename)
+                         (with-temp-buffer
+                           (insert-file-contents-literally filename)
+                           (let ((next-chunk-pos 1) chunk)
+                             (while (progn
+                                      (setq chunk (literate-parser next-chunk-pos)
+                                            next-chunk-pos (literate-next-chunk-begin chunk))
+                                      (let* ((ex-filename (expand-file-name filename))
+                                             (list (or (gethash ex-filename chunks-cache)
+                                                       (list))))
+                                        (setq list (append list (list chunk)))
+                                        (puthash ex-filename list chunks-cache))
+                                      (when (literate-include-chunk-p chunk)
+                                        (helper (literate-include-chunk-path chunk)))
+                                      (< next-chunk-pos (point-max))))))
+                       (let* ((ex-filename (expand-file-name filename))
+                              (chunks (gethash ex-filename
+                                               literate-chunks-cache)))
+                         (puthash ex-filename chunks chunks-cache)
+                         (dolist (chunk chunks)
+                           (when (literate-include-chunk-p chunk)
+                             (helper (literate-include-chunk-path chunk))))))))
+      (helper filename)
+      (setq literate-chunks-cache chunks-cache)))
   (let ((chunks-by-name (make-hash-table :test #'equal))
         (chunks-dependences (make-hash-table :test #'equal))
         (chunks-files (list)))
-    (labels ((get-targets (body-beg body-end)
-                          (let ((targets (list))
-                                (pos body-beg))
-                            (while
-                                (let ((target (literate-get-target pos)))
-                                  (setq pos (car target))
-                                  (when (and pos
-                                             (< pos body-end))
-                                    (incf pos)
-                                    (add-to-list 'targets (cadr target)))))
-                            targets))
-             (conc-to-hash (chunkname body-beg body-end filename)
+    (labels ((conc-to-hash (chunkname body-beg body-end targets filename)
                            (let ((list (or (gethash chunkname chunks-by-name)
                                            (list))))
                              (push (list body-beg body-end filename) list)
                              (puthash chunkname list chunks-by-name))
-                           (let ((targets (get-targets body-beg body-end)))
-                             (dolist (i targets)
-                               (let ((list (or (gethash i chunks-dependences)
-                                               (list))))
-                                 (add-to-list 'list chunkname)
-                                 (puthash i list chunks-dependences)))))
+                           (dolist (i targets)
+                             (let ((list (or (gethash i chunks-dependences)
+                                             (list))))
+                               (add-to-list 'list chunkname)
+                               (puthash i list chunks-dependences))))
              (helper (filename)
-                     (with-temp-buffer
-                       (insert-file-contents-literally filename)
-                       (let ((next-chunk-pos 1) chunk)
-                         (while (progn
-                                  (setq chunk (literate-parser next-chunk-pos)
-                                        next-chunk-pos (literate-next-chunk-begin chunk))
-                                  (cond
-                                   ((literate-code-chunk-p chunk)
-                                    (let ((subtype (literate-code-chunk-subtype chunk)))
-                                      (when (or (eq subtype 'chunk)
-                                                (eq subtype 'file-chunk))
-                                        (conc-to-hash (literate-code-chunk-name chunk)
-                                                      (literate-code-chunk-body-beg chunk)
-                                                      (literate-code-chunk-body-end chunk)
-                                                      filename)
-                                        (when (eq subtype 'file-chunk)
-                                          (add-to-list 'chunks-files
-                                                       (literate-code-chunk-name chunk))))))
-                                   ((literate-text-chunk-p chunk) ())
-                                   ((literate-include-chunk-p chunk)
-                                    (helper (literate-include-chunk-path chunk))))
-                                  (< next-chunk-pos (point-max))))))))
+                     (let ((chunks (gethash (expand-file-name filename)
+                                            literate-chunks-cache)))
+                       (dolist (chunk chunks)
+                         (cond
+                          ((literate-code-chunk-p chunk)
+                           (let ((subtype (literate-code-chunk-subtype chunk)))
+                             (when (or (eq subtype 'chunk)
+                                       (eq subtype 'file-chunk))
+                               (conc-to-hash (literate-code-chunk-name chunk)
+                                             (literate-code-chunk-body-beg chunk)
+                                             (literate-code-chunk-body-end chunk)
+                                             (literate-code-chunk-targets chunk)
+                                             filename)
+                               (when (eq subtype 'file-chunk)
+                                 (add-to-list 'chunks-files
+                                              (literate-code-chunk-name chunk))))))
+                          ((literate-text-chunk-p chunk) ())
+                          ((literate-include-chunk-p chunk)
+                           (helper (literate-include-chunk-path chunk))))))))
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
 

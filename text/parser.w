@@ -4,6 +4,8 @@
 
 @d Variables @{
 (defvar literate-lp-syntax nil)
+(defvar literate-chunks-cache (make-hash-table :test #'equal))
+(defvar literate-files-hash (make-hash-table :test #'equal))
 (defvar literate-syntax-functions '(("nuweb" . (literate-nuweb-parser
                                                 literate-nuweb-get-target
                                                 literate-nuweb-generate-target))
@@ -11,6 +13,9 @@
                                                 literate-noweb-get-target
                                                 literate-noweb-generate-target))))@}
 literate-lp-syntax -- синтаксис текущего проекта. Если nil, то синтаксис не выбран
+literate-chunks-cache -- в этой переменной кешируются чанки. Ключ -- абсолютный путь
+  до файла, значение -- список структур чанков
+literate-files-hash -- ключ -- абсолютное имя файла, значение -- метка времени модификации
 literate-syntax-functions -- переменная в которой записаны функции интерфейса синтаксиса
 
 Для начала определим функцию, которая будет принимать позицию в буфере
@@ -48,10 +53,22 @@ FIXME:Данная версия не принимает t
 Данные чанка с кодом:
 @d Parser @{
 (defstruct literate-code-chunk
-  subtype name body-beg body-end tags next-chunk)
+  subtype name body-beg body-end targets tags next-chunk)
 @}
-подтип чанка, имя чанка, начало кода, конец кода, ссылки(в виде
+подтип чанка, имя чанка, начало кода, конец кода, цели внутри тела, ссылки(в виде
   строк), позиция начала следующего чанка
+
+Функция для работы с хешем файлов:
+@d Parser @{
+(defun literate-check-hash-of-file (filename)
+  (let ((modif-time (nth 6 (file-attributes filename))))
+    (if (equal (gethash (expand-file-name filename) literate-files-hash)
+               modif-time)
+        nil
+      (puthash (expand-file-name filename) modif-time literate-files-hash))))
+@}
+возвращает nil, если файл не изменялся в прошлой проверки, иначе записать новую
+  метку в literate-files-hash и вернуть эту метку
 
 Напишем парсер для кода:
 @d Parser @{
@@ -61,17 +78,20 @@ FIXME:Данная версия не принимает t
       (let (subtype name body-beg body-end tags next-chunk)
         @<Code parser -- check tags@>
         (let (open tag close)
-          @<Code parser -- find open, info-tag & close tags@>
+          @<Code parser -- find open, info-tag & close tags@>)
           @<Code parser -- fill body-end, tags & next-chunk@>
           @<Code parser -- fill name@>)
-        (make-literate-code-chunk :subtype subtype :name name
-                                  :body-beg body-beg :body-end body-end
-                                  :tags tags :next-chunk next-chunk))))
+        (labels (@<Code parser -- get targets@>)
+          (make-literate-code-chunk :subtype subtype :name name
+                                    :body-beg body-beg :body-end body-end
+                                    :targets (get-targets body-beg body-end)
+                                    :tags tags
+                                    :next-chunk next-chunk)))))
 @}
 Вначале сделаем проверку на наличие в буфере 2-х символов, без этих символов в
   буфере заведомо не помещается тег @[od] и следовательно нет кодового чанка.
 Далее проверяем тег @[do], находим открывающий, закрывающий и тег отмечающий
-  ссылки. После этого запоняем поля.
+  ссылки. Находим цели внутри тела блока. После этого запоняем поля.
 
 Проверка тега. По нему можно определить тип чанка с кодом и, если тег не тот, то
 это точно не чанк с кодом:
@@ -103,7 +123,7 @@ TODO: быть может стоит не учитывать @{\n? Что-то �
                     ("@{" (or open (setq open (point))))
                     ("@|" (or tag (setq tag (point))))
                     ("@}" (setq close (point)))))
-              (not close))))))@}
+              (not close)))))@}
 Так как этот режим должен собрать сам себя, то тут используется костыль. Теги
   "@{", "@|", "@}" заключённые в двойные кавычки(причём открывающая и закрывающая кавычка
   лежат на одной строке) пропускаются парсером.
@@ -132,6 +152,23 @@ TODO: buffer-substring-no-properties -- не overhead ли здесь? Врод�
 Чтобы получить имя чанка достаточно найти открывающий тег. Тоесть этот парсер
   можно использовать для ещё недописанных чанков, и по наличию nil в некоторых
   полях результата определять: дописан тег или нет.
+
+Возвращает список целей в буфере между позициями body-beg и body-end:
+@d Code parser -- get targets
+@{(get-targets (body-beg body-end)
+             (and body-beg
+                  body-end
+                  (let ((targets (list))
+                        (pos body-beg))
+                    (while
+                        (let ((target (literate-get-target pos)))
+                          (setq pos (car target))
+                          (when (and pos
+                                     (< pos body-end))
+                            (incf pos)
+                            (add-to-list 'targets (cadr target)))))
+                    targets)))@}
+
 
 Теперь можно определить предикат, который будет определять это чанк с кодом или нет.
 Причем чанк должен быть закрыт тегом:
@@ -289,77 +326,90 @@ path -- путь до файла
 для chunks-dependences:
 @d Parser @{
 (defun literate-parse-file (filename)
+  (let ((chunks-cache (make-hash-table :test #'equal)))
+    (labels (@<Parse file -- hash helper@>)
+      (helper filename)
+      (setq literate-chunks-cache chunks-cache)))
   (let ((chunks-by-name (make-hash-table :test #'equal))
         (chunks-dependences (make-hash-table :test #'equal))
         (chunks-files (list)))
-    (labels (@<Parse file -- get targets@>
-             @<Parse file -- concatenate to hash@>
-             @<Parse file -- helper@>)
+    (labels (@<Parse file -- concatenate to hash@>
+             @<Parse file -- fill helper@>)
       (helper filename))
     (list chunks-by-name chunks-dependences chunks-files)))
 @}
 Так как внутри LP-файла подключаются другие, то стоит вызвать парсер рекурсивно.
-  Именно для этого нужен helper, который определяется в labels, он производит основную
-  работу.
+  Именно для этого нужен helper(их два и они разные), который определяется в labels,
+  он производит основную работу.
+В первом блоке let происходит кеширование и извлечение из кеша чанков LP-файлов.
+  Результат сохраняется в literate-chunks-cache
+Во втором блоке let -- заполнение chunks-by-name chunks-dependences chunks-files
+  с помощью содержимого literate-chunks-cache
 
-Возвращает список целей в буфере между позициями body-beg и body-end:
-@d Parse file -- get targets
-@{(get-targets (body-beg body-end)
-             (let ((targets (list))
-                   (pos body-beg))
-               (while
-                   (let ((target (literate-get-target pos)))
-                     (setq pos (car target))
-                     (when (and pos
-                                (< pos body-end))
-                       (incf pos)
-                       (add-to-list 'targets (cadr target)))))
-               targets))@}
-
+Вспомогательная функция. Кеширует чанки по имени файла:
+@d Parse file -- hash helper
+@{(helper (filename)
+        (if (literate-check-hash-of-file filename)
+            (with-temp-buffer
+              (insert-file-contents-literally filename)
+              (let ((next-chunk-pos 1) chunk)
+                (while (progn
+                         (setq chunk (literate-parser next-chunk-pos)
+                               next-chunk-pos (literate-next-chunk-begin chunk))
+                         (let* ((ex-filename (expand-file-name filename))
+                                (list (or (gethash ex-filename chunks-cache)
+                                          (list))))
+                           (setq list (append list (list chunk)))
+                           (puthash ex-filename list chunks-cache))
+                         (when (literate-include-chunk-p chunk)
+                           (helper (literate-include-chunk-path chunk)))
+                         (< next-chunk-pos (point-max))))))
+          (let* ((ex-filename (expand-file-name filename))
+                 (chunks (gethash ex-filename
+                                  literate-chunks-cache)))
+            (puthash ex-filename chunks chunks-cache)
+            (dolist (chunk chunks)
+              (when (literate-include-chunk-p chunk)
+                (helper (literate-include-chunk-path chunk)))))))@}
 
 Парсеру придётся заполнять хеш-таблицу. Он делает это с помощью функции conc-to-hash:
 @d Parse file -- concatenate to hash
-@{(conc-to-hash (chunkname body-beg body-end filename)
+@{(conc-to-hash (chunkname body-beg body-end targets filename)
               (let ((list (or (gethash chunkname chunks-by-name)
                               (list))))
                 (push (list body-beg body-end filename) list)
                 (puthash chunkname list chunks-by-name))
-              (let ((targets (get-targets body-beg body-end)))
-                (dolist (i targets)
-                  (let ((list (or (gethash i chunks-dependences)
-                                  (list))))
-                    (add-to-list 'list chunkname)
-                    (puthash i list chunks-dependences)))))@}
+              (dolist (i targets)
+                (let ((list (or (gethash i chunks-dependences)
+                                (list))))
+                  (add-to-list 'list chunkname)
+                  (puthash i list chunks-dependences))))@}
 Получив имя чанка, она находит его в таблице и добавляет информацию.
 Последний чанк должен быть первым в списке, а первый последним.
 
-Основная функция парсера parse-file:
-@d Parse file -- helper
+Эта функция пробегает чанки и заполняет структуры, которые вернёт функция:
+@d Parse file -- fill helper
 @{(helper (filename)
-        (with-temp-buffer
-          (insert-file-contents-literally filename)
-          (let ((next-chunk-pos 1) chunk)
-            (while (progn
-                     (setq chunk (literate-parser next-chunk-pos)
-                           next-chunk-pos (literate-next-chunk-begin chunk))
-                     (cond
-                      ((literate-code-chunk-p chunk)
-                       (let ((subtype (literate-code-chunk-subtype chunk)))
-                         (when (or (eq subtype 'chunk)
-                                   (eq subtype 'file-chunk))
-                           (conc-to-hash (literate-code-chunk-name chunk)
-                                         (literate-code-chunk-body-beg chunk)
-                                         (literate-code-chunk-body-end chunk)
-                                         filename)
-                           (when (eq subtype 'file-chunk)
-                             (add-to-list 'chunks-files
-                                          (literate-code-chunk-name chunk))))))
-                      ((literate-text-chunk-p chunk) ())
-                      ((literate-include-chunk-p chunk)
-                       (helper (literate-include-chunk-path chunk))))
-                     (< next-chunk-pos (point-max)))))))@}
-Пишет содержимое файла filename во временный буфер и, пробегая по буферу
-  чанк за чанком, заполняет хеш-таблицу.
+        (let ((chunks (gethash (expand-file-name filename)
+                               literate-chunks-cache)))
+          (dolist (chunk chunks)
+            (cond
+             ((literate-code-chunk-p chunk)
+              (let ((subtype (literate-code-chunk-subtype chunk)))
+                (when (or (eq subtype 'chunk)
+                          (eq subtype 'file-chunk))
+                  (conc-to-hash (literate-code-chunk-name chunk)
+                                (literate-code-chunk-body-beg chunk)
+                                (literate-code-chunk-body-end chunk)
+                                (literate-code-chunk-targets chunk)
+                                filename)
+                  (when (eq subtype 'file-chunk)
+                    (add-to-list 'chunks-files
+                                 (literate-code-chunk-name chunk))))))
+             ((literate-text-chunk-p chunk) ())
+             ((literate-include-chunk-p chunk)
+              (helper (literate-include-chunk-path chunk)))))))@}
+работа происходит с уже закешированными данными, чтение из файлов не происходит
 
 Noweb
 ================================
@@ -419,6 +469,7 @@ TODO: А так как я ленивый и noweb не импользую, то 
                                       :body-beg body-beg :body-end body-end
                                       :tags nil :next-chunk next-chunk))))))
 @}
+FIXME: после написание кеширование LP-файлов структура literate-code-chunk изменилась
 
 @d Parser @{
 (defun literate-noweb-text-chunk-parser (beg-pos)
