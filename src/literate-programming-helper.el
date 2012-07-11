@@ -170,7 +170,7 @@
                   (setq next-chunk (1+ (match-end 1))
                         name (literate-agressive-chomp
                               (match-string-no-properties 1)))))
-            (make-literate-include-chunk :name :body-beg beg-pos :next-chunk next-chunk)))))
+            (make-literate-include-chunk :name name :body-beg beg-pos :next-chunk next-chunk)))))
 
 (defun literate-next-chunk-begin (chunk)
   (cond
