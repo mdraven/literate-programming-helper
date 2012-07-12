@@ -30,13 +30,14 @@ literate-overlays и оверлеями, на которые указывает 
   (let (list)
     (dolist (i literate-overlays)
       (let ((chunk (car (overlay-get i 'literate-chunk))))
-        (if chunk
-            (push (caddr chunk) list))))
+        (when (and chunk
+                   (overlay-get i 'literate-modify))
+          (push (caddr chunk) list))))
     (delete-dups list)))
 @}
-Она всего лишь вытягивает имена LP-файлов из оверлеев. Конечно можно было сохранить
-  эти данные в какой-нибудь глобальной переменной, но раз данные уже были помещены
-  в свойства оверлеев, то зачем повторяться?
+Она всего лишь вытягивает имена LP-файлов из изменившихся оверлеев.
+  Конечно можно было сохранить эти данные в какой-нибудь глобальной переменной,
+  но раз данные уже были помещены в свойства оверлеев, то зачем повторяться?
 
 Ещё одна полезная функция:
 @d BackConverter @{
@@ -52,6 +53,8 @@ literate-overlays и оверлеями, на которые указывает 
 (defun literate-buffer-to-LP ()
   (let ((literate-overlays literate-overlays)
         (files (literate-get-filenames-list-from-overlays)))
+    ;; Remove modification-hooks
+    @<Buffer to LP -- Remove modification-hooks@>
     ;; Create buffers
     @<Buffer to LP -- Create buffers@>
     ;; Create markers
@@ -68,6 +71,15 @@ literate-overlays и оверлеями, на которые указывает 
 write-region используется потому, как остальные функции слишком высокоуровненые.
   Часто возникает требование обновления буфера(revert-buffer).
 
+Удалим функцию контролирующую модификацию оверлеев:
+@d Buffer to LP -- Remove modification-hooks
+@{(dolist (i literate-overlays)
+  (overlay-put i 'modification-hooks nil))@}
+далее оверлеи будут модифицироваться(например, будут удалятся блоки),
+  это приведёт к тому, что флаг модификации будет устанавливаться на блоки
+  которые мы не модифицировали. Удаление этого хука предотвратит эту неприятность
+
+
 На данном этапе нам потребуются буферы с LP-текстом для того, чтобы можно было
 заменить код в чанках на новый. Оверлеи(которые играют роль отображений чанков)
 содержат имена LP-файлов, поэтому мы извлекаем эти имена и создаём буферы:
@@ -81,18 +93,20 @@ write-region используется потому, как остальные ф
 будут менять своё положение вместе с изменениями текста:
 @d Buffer to LP -- Create markers
 @{(dolist (i literate-overlays)
-  (let* ((chunk (car (overlay-get i 'literate-chunk)))
-         (bufname (concat literate-buffer-prefix (caddr chunk)))
-         (beg-marker (make-marker))
-         (end-marker (make-marker)))
-    (with-current-buffer bufname
-      ;; (set-marker-insertion-type beg-marker t)
-      (set-marker-insertion-type end-marker t)
-      (set-marker beg-marker (car chunk))
-      (set-marker end-marker (cadr chunk))
-      (overlay-put i 'literate-marker (list beg-marker end-marker)))))@}
+  (when (overlay-get i 'literate-modify)
+    (let* ((chunk (car (overlay-get i 'literate-chunk)))
+           (bufname (concat literate-buffer-prefix (caddr chunk)))
+           (beg-marker (make-marker))
+           (end-marker (make-marker)))
+      (with-current-buffer bufname
+        ;; (set-marker-insertion-type beg-marker t)
+        (set-marker-insertion-type end-marker t)
+        (set-marker beg-marker (car chunk))
+        (set-marker end-marker (cadr chunk))
+        (overlay-put i 'literate-marker (list beg-marker end-marker))))))@}
 К оверлеям добавляется новое свойство literate-marker. В нём будут содержаться
   ссылки к начальному и конечному маркеру.
+Маркеры создаются только для блоков, в которых было изменение.
 
 Начинаем перенос содержимого оверлеев в чанки. По первому взятому оверлею(который
 представляет один чанк) можно получить всех его соседей имеющих одно имя,
@@ -135,22 +149,23 @@ write-region используется потому, как остальные ф
 Этот фрагмент кода отвечает за вставку кода из оверлеев в чанка. Соответственно она
 переключает буфер: с буфера оверлея на буфер чанка:
 @d Buffer to LP -- insert code in LP & remove from tangled file
-@{(let ((markers (overlay-get i 'literate-marker)))
-  (let* ((beg-body (overlay-start i))
-         (end-body (overlay-end i))
-         (body (buffer-substring-no-properties beg-body end-body))
-         (something-written-before-body))
-    @<Buffer to LP -- set something-written-before-body@>
+@{(when (overlay-get i 'literate-modify)
+    (let ((markers (overlay-get i 'literate-marker)))
+      (let* ((beg-body (overlay-start i))
+             (end-body (overlay-end i))
+             (body (buffer-substring-no-properties beg-body end-body))
+             (something-written-before-body))
+        @<Buffer to LP -- set something-written-before-body@>
 
-    (with-current-buffer (marker-buffer (car markers))
-      (delete-region (marker-position (car markers))
-                     (marker-position (cadr markers)))
-      (save-excursion
-        @<Buffer to LP -- insert body to LP@>
+        (with-current-buffer (marker-buffer (car markers))
+          (delete-region (marker-position (car markers))
+                         (marker-position (cadr markers)))
+          (save-excursion
+            @<Buffer to LP -- insert body to LP@>
 
-        @<Buffer to LP -- rm or ins spaces before first line of the block of chunks@>
-        @<Buffer to LP -- remove spaces before chunk's first line@>
-        @<Buffer to LP -- remove spaces before other chunk's lines@>))))@}
+            @<Buffer to LP -- rm or ins spaces before first line of the block of chunks@>
+            @<Buffer to LP -- remove spaces before chunk's first line@>
+            @<Buffer to LP -- remove spaces before other chunk's lines@>)))))@}
 Напомню, что маркеры расположены в буфере с чанками, а оверлеи в буфере со сгренерированным
   кодом.
 TODO: надо сделать хук для преобразования из пробелов в табы. Как раз после удаления/добавления

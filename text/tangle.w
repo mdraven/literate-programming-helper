@@ -27,7 +27,9 @@ end -- необязательный параметр; иногда конец с
   (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
     (literate-insert-parts-of-chunks chunks filename)
     (beginning-of-buffer)
-    (literate-expand-targets chunks remove-unfound-chunks)))
+    (literate-expand-targets chunks remove-unfound-chunks))
+  (dolist (i literate-overlays)
+    (overlay-put i 'modification-hooks (list #'literate-overlay-modification))))
 @}
 Она принимает имя файла, который нужно сгенерировать. Он должен быть определён, как
   имя одного из чанков. Вторым параметром является хеш-таблица
@@ -36,7 +38,7 @@ end -- необязательный параметр; иногда конец с
   сожержимое чанка файла с помощью функции insert-parts-of-chunks, которая определена
   ниже, переводит курсор на начало файла(insert-parts-of-chunks устанавливает курсор
   после вставленного текста), и с помощью функции expand-targets распаковывает цели.
-
+В самом конце мы устанавливаем функцию обработчик изменения чанка внутри оверлея.
 
 Функция для распаковки целей. Находит цели, вставляет в них содержимое чанка,
 выравнивает код. Если установить параметр remove-unfound-chunks в t, то
@@ -145,6 +147,13 @@ TODO: хук для преобразования из табов в пробел
 (defvar literate-overlays nil)@}
 на всякий случай напомню, что у оверлеев есть свойства и там хранится
   много информации.
+
+Когда в каком-то оверлее происходят изменения, вызывается эта фукнция:
+@d Tangle @{
+(defun literate-overlay-modification (overlay flag beg end &rest args)
+  (when flag
+    (overlay-put overlay 'literate-modify t)))
+@}
 
 Функция, которая возвращает число пробелов перед первой строкой чанка:
 @d Tangle @{
