@@ -366,12 +366,13 @@
 
 
 (defun literate-expand-file (filename chunks &optional remove-unfound-chunks)
-  (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
-    (literate-insert-parts-of-chunks chunks filename)
-    (beginning-of-buffer)
-    (literate-expand-targets chunks remove-unfound-chunks))
-  (dolist (i literate-overlays)
-    (overlay-put i 'modification-hooks (list #'literate-overlay-modification))))
+  (prog1
+      (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
+        (literate-insert-parts-of-chunks chunks filename)
+        (beginning-of-buffer)
+        (literate-expand-targets chunks remove-unfound-chunks))
+    (dolist (i literate-overlays)
+      (overlay-put i 'modification-hooks (list #'literate-overlay-modification)))))
 
 (defun literate-expand-targets (chunks &optional remove-unfound-chunks)
   (let (unfound-chunks)
