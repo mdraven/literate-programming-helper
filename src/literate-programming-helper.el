@@ -642,7 +642,8 @@
   (if (null literate-lp-directory)
       (progn (message "The project file has not been saved. You must first create or open project")
              nil)
-    (let ((proj-file (concat literate-lp-directory "/" literate-project-filename)))
+    (let ((proj-file (concat (file-name-as-directory literate-lp-directory)
+                             literate-project-filename)))
       (if (and (not (file-exists-p proj-file))
                (not create-p))
           (message (concat "The project file " proj-file " doesn't exist"))
@@ -695,7 +696,8 @@
       (completing-read "LP syntax type: " syntax-types nil t (car syntax-types)))
     (read-file-name "LP file: ")
     (read-directory-name "Source directory: " nil nil nil "src")))
-  (let ((proj-file (concat dir-path "/" literate-project-filename)))
+  (let ((proj-file (concat (file-name-as-directory dir-path)
+                           literate-project-filename)))
     (if (file-exists-p proj-file)
         (message (concat "The project file " proj-file " already exists"))
       (setq literate-lp-directory dir-path
@@ -714,7 +716,8 @@
 ;;;###autoload
 (defun literate-open-lp-project (dir-path)
   (interactive "DLP project directory: ")
-  (let ((proj-file (concat dir-path "/" literate-project-filename)))
+  (let ((proj-file (concat (file-name-as-directory dir-path)
+                           literate-project-filename)))
     (if (not (file-exists-p proj-file))
         (message (concat "The project file " proj-file " doesn't exist"))
       (setq literate-lp-directory dir-path
@@ -783,7 +786,7 @@
 (defun literate-generate-and-go (pos &optional arg)
   (interactive "d\np")
   (setq literate-overlays (list))
-  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+  (let ((parse (literate-parse-file (concat (file-name-as-directory literate-lp-directory)
                                             literate-lp-filename))))
     (let ((chunks (car parse))
           (dependences (cadr parse))
@@ -799,8 +802,8 @@
           (when (and literate-lp-directory
                      literate-src-dir)
             (with-current-buffer (concat literate-buffer-prefix file)
-              (write-file (concat literate-lp-directory "/"
-                                  literate-src-dir "/"
+              (write-file (concat (file-name-as-directory literate-lp-directory)
+                                  (file-name-as-directory literate-src-dir)
                                   file))))))))
   (literate-go-to-body-position pos)
   (literate-code-mode t))
@@ -822,7 +825,7 @@
 (defun literate-generate-all-files (&optional arg)
   (interactive "p")
   (setq literate-overlays (list))
-  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+  (let ((parse (literate-parse-file (concat (file-name-as-directory literate-lp-directory)
                                             literate-lp-filename))))
     (let ((chunks (car parse))
           (files (caddr parse)))
@@ -831,8 +834,8 @@
         (dolist (file files)
           (literate-expand-file file chunks (eql arg 4))
           (with-current-buffer (concat literate-buffer-prefix file)
-            (let ((filename (concat literate-lp-directory "/"
-                                    literate-src-dir "/"
+            (let ((filename (concat (file-name-as-directory literate-lp-directory)
+                                    (file-name-as-directory literate-src-dir)
                                     file)))
               (unless (literate-eq-buffer-and-file filename)
                 (write-file filename)))

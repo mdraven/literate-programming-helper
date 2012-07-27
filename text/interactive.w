@@ -81,7 +81,7 @@ FIXME: избавится от chunk-name, если maphash возвращает
 (defun literate-generate-and-go (pos &optional arg)
   (interactive "d\np")
   (setq literate-overlays (list))
-  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+  (let ((parse (literate-parse-file (concat (file-name-as-directory literate-lp-directory)
                                             literate-lp-filename))))
     (let ((chunks (car parse))
           (dependences (cadr parse))
@@ -97,8 +97,8 @@ FIXME: избавится от chunk-name, если maphash возвращает
           (when (and literate-lp-directory
                      literate-src-dir)
             (with-current-buffer (concat literate-buffer-prefix file)
-              (write-file (concat literate-lp-directory "/"
-                                  literate-src-dir "/"
+              (write-file (concat (file-name-as-directory literate-lp-directory)
+                                  (file-name-as-directory literate-src-dir)
                                   file))))))))
   (literate-go-to-body-position pos)
   (literate-code-mode t))
@@ -106,8 +106,6 @@ FIXME: избавится от chunk-name, если maphash возвращает
 после создания буфера с кодом прикрепляет к нему файл.
 У функции есть аргумент arg, если он равен 4(C-u), то у нас запрашивается имя файла,
   который будет генерироваться.
-FIXME: при каждом вызове парсит файлы, нужно сделать кеширование.
-FIXME: "/" -- платформозависимо, неужели нет функции для генерации путей к файлам?
 FIXME: можно вызвать из окна с кодом, тогда literate-overlays станет nil и мы не
   сможем вернуться(можно исправить горячими клавишами)
 
@@ -138,7 +136,7 @@ revert не делает, но принципе можно будет сдела
 (defun literate-generate-all-files (&optional arg)
   (interactive "p")
   (setq literate-overlays (list))
-  (let ((parse (literate-parse-file (concat literate-lp-directory "/"
+  (let ((parse (literate-parse-file (concat (file-name-as-directory literate-lp-directory)
                                             literate-lp-filename))))
     (let ((chunks (car parse))
           (files (caddr parse)))
@@ -147,8 +145,8 @@ revert не делает, но принципе можно будет сдела
         (dolist (file files)
           (literate-expand-file file chunks (eql arg 4))
           (with-current-buffer (concat literate-buffer-prefix file)
-            (let ((filename (concat literate-lp-directory "/"
-                                    literate-src-dir "/"
+            (let ((filename (concat (file-name-as-directory literate-lp-directory)
+                                    (file-name-as-directory literate-src-dir)
                                     file)))
               (unless (literate-eq-buffer-and-file filename)
                 (write-file filename)))
