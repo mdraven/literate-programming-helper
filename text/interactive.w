@@ -162,7 +162,7 @@ revert не делает, но принципе можно будет сдела
   (when (file-exists-p filename)
     (let ((buf-text (buffer-substring-no-properties (point-min) (point-max))))
       (with-temp-buffer
-        (insert-file-literally filename)
+        (insert-file-contents-literally filename)
         (string= buf-text (buffer-substring-no-properties (point-min) (point-max)))))))
 @}
 если файла нет, то возвращает nil. t -- только если буфер и файл равны.

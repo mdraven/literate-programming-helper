@@ -81,7 +81,7 @@
   (when (file-exists-p filename)
     (let ((buf-text (buffer-substring-no-properties (point-min) (point-max))))
       (with-temp-buffer
-        (insert-file-literally filename)
+        (insert-file-contents-literally filename)
         (string= buf-text (buffer-substring-no-properties (point-min) (point-max)))))))
 
 
@@ -373,7 +373,7 @@
   (prog1
       (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
         (literate-insert-parts-of-chunks chunks filename)
-        (beginning-of-buffer)
+        (goto-char (point-min)) ;; (beginning-of-buffer)
         (literate-expand-targets chunks remove-unfound-chunks))
     (dolist (i literate-overlays)
       (overlay-put i 'modification-hooks (list #'literate-overlay-modification)))))

@@ -27,7 +27,7 @@ end -- необязательный параметр; иногда конец с
   (prog1
       (with-current-buffer (generate-new-buffer (concat literate-buffer-prefix filename))
         (literate-insert-parts-of-chunks chunks filename)
-        (beginning-of-buffer)
+        (goto-char (point-min)) ;; (beginning-of-buffer)
         (literate-expand-targets chunks remove-unfound-chunks))
     (dolist (i literate-overlays)
       (overlay-put i 'modification-hooks (list #'literate-overlay-modification)))))
