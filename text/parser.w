@@ -234,7 +234,11 @@ path -- путь до файла
                   (setq next-chunk (1+ (match-end 1))
                         name (literate-agressive-chomp
                               (match-string-no-properties 1)))))
-            (make-literate-include-chunk :path (expand-file-name name)
+            (make-literate-include-chunk :path (expand-file-name
+                                                (concat
+                                                 (file-name-as-directory literate-lp-directory)
+                                                 (file-name-directory literate-lp-filename)
+                                                 name))
                                          :body-beg beg-pos :next-chunk next-chunk)))))
 @}
 Поверяет тег @i, получает имя файла. Возвращает имя файла, своё начало(похоже что оно
