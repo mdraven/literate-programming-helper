@@ -47,16 +47,26 @@
         (literate-remove-indicators)
         (save-excursion
           (goto-char beg)
-          (while (< (point) end)
-            (let ((ind (make-overlay (point) (point))))
-              (push ind literate-indicators)
-              (overlay-put ind 'before-string
-                           (propertize " " 'display `((margin left-margin) "-"))))
-            (forward-line)))))))
+          @<Fill indicator - put indicators@>))))))
 @}
 FIXME: конфликтует с linum. А после того как они добавили lexical-binding хрен знает
   как исправить :(
 FIXME: маркеры отваливаются после любого переключения в буфере -- margin восстанавливается в 0
+
+В этом участке расставляются символы на боковой панели:
+@d Fill indicator - put indicators
+@{(catch 'break
+  (while (< (point) end)
+    (let ((ind (make-overlay (point) (point))))
+      (push ind literate-indicators)
+      (overlay-put ind 'before-string
+                   (propertize " " 'display `((margin left-margin) "-"))))
+    (if (/= (forward-line) 0)
+        (throw 'break t)))@}
+проверка forward-line на неравенство сделана, чтобы обойти проблемы с yasnippet: может там используется
+narrowing или что-то другое, но, если применить сниппет, то "(while (< (point) end)" не может завершится.
+Поэтому чтобы можно было использовать одновременно yasnippet и literate-code-mode у forward-line проверяется
+дошли мы до конца буфера или нет.
 
 Функция для создания отступа для индикатора:
 @d Minor mode for code @{

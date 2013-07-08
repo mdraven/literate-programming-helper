@@ -873,12 +873,14 @@
         (literate-remove-indicators)
         (save-excursion
           (goto-char beg)
-          (while (< (point) end)
-            (let ((ind (make-overlay (point) (point))))
-              (push ind literate-indicators)
-              (overlay-put ind 'before-string
-                           (propertize " " 'display `((margin left-margin) "-"))))
-            (forward-line)))))))
+          (catch 'break
+            (while (< (point) end)
+              (let ((ind (make-overlay (point) (point))))
+                (push ind literate-indicators)
+                (overlay-put ind 'before-string
+                             (propertize " " 'display `((margin left-margin) "-"))))
+              (if (/= (forward-line) 0)
+                  (throw 'break t)))))))))
 
 (defun literate-set-window-margin (activate)
   (let* ((margin (window-margins))
